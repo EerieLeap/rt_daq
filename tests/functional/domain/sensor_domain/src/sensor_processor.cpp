@@ -26,7 +26,6 @@
 #include "domain/sensor_domain/sensor_readers/sensor_reader_physical_indicator.h"
 #include "domain/sensor_domain/sensor_readers/sensor_reader_virtual_analog.h"
 #include "domain/sensor_domain/sensor_readers/sensor_reader_virtual_indicator.h"
-#include "domain/sensor_domain/processors/adc_reading_processor.h"
 #include "domain/sensor_domain/processors/expression_processor.h"
 
 #include "utilities/voltage_interpolator/linear_voltage_interpolator.hpp"
@@ -294,11 +293,10 @@ ZTEST(sensor_processor, test_ProcessReading) {
         }
     }
 
-    float reading_1_value = sensors[1]->configuration.voltage_interpolator->Interpolate(reading_1.value.value());
-    float reading_2_value = sensors[0]->configuration.voltage_interpolator->Interpolate(reading_2.value.value());
+    float reading_1_value = reading_1.value.value();
+    float reading_2_value = reading_2.value.value();
 
     std::vector<std::shared_ptr<IReadingProcessor>> reading_processors;
-    reading_processors.push_back(std::make_shared<AdcReadingProcessor>(sensor_readings_frame));
     reading_processors.push_back(std::make_shared<ExpressionProcessor>(sensor_readings_frame));
     reading_processors.push_back(std::make_shared<ReadingProcessedProcessor>(sensor_readings_frame));
 

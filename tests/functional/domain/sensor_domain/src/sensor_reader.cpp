@@ -59,7 +59,7 @@ ZTEST_SUITE(sensors_reader, NULL, NULL, NULL, NULL, NULL);
 std::vector<std::shared_ptr<Sensor>> sensors_reader_GetTestSensors() {
     std::pmr::vector<CalibrationData> calibration_data_1 {
         {0.0, 0.0},
-        {3.3, 100.0}
+        {3.3, 5.0}
     };
     auto calibration_data_1_ptr = std::make_shared<std::pmr::vector<CalibrationData>>(calibration_data_1);
 
@@ -260,20 +260,20 @@ ZTEST(sensors_reader, test_Read) {
     auto reading_2_opt = sensor_readings_frame->TryGetReading("sensor_2");
     zassert_true(reading_2_opt.has_value());
     auto& reading_2 = reading_2_opt.value();
-    zassert_equal(reading_2.status, ReadingStatus::RAW);
+    zassert_equal(reading_2.status, ReadingStatus::INTERPOLATED);
     zassert_true(reading_2.value.has_value());
     zassert_true(reading_2.timestamp.has_value());
     zassert_true(reading_2.id.AsUint64() > 0);
-    zassert_between_inclusive(reading_2.value.value(), 0, 3.3);
+    zassert_between_inclusive(reading_2.value.value(), 0.0f, 200.0f);
 
     auto reading_1_opt = sensor_readings_frame->TryGetReading("sensor_1");
     zassert_true(reading_1_opt.has_value());
     auto& reading_1 = reading_1_opt.value();
-    zassert_equal(reading_1.status, ReadingStatus::RAW);
+    zassert_equal(reading_1.status, ReadingStatus::INTERPOLATED);
     zassert_true(reading_1.value.has_value());
     zassert_true(reading_1.timestamp.has_value());
     zassert_true(reading_1.id.AsUint64() > 0);
-    zassert_between_inclusive(reading_1.value.value(), 0, 3.3);
+    zassert_between_inclusive(reading_1.value.value(), 0.0f, 5.0f);
 
     auto reading_3_opt = sensor_readings_frame->TryGetReading("sensor_3");
     zassert_true(reading_3_opt.has_value());
