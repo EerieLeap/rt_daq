@@ -312,6 +312,12 @@ ZTEST(sensor_processor, test_ProcessReading) {
     zassert_true(proc_reading_2.value.has_value());
     float proc_reading_2_value = reading_2_value * 4 + 1.6;
     zassert_equal(proc_reading_2.value.value(), proc_reading_2_value);
+    auto proc_reading_2_metadata_voltage = proc_reading_2.metadata.GetTag<float>(ReadingMetadataTag::VOLTAGE);
+    zassert_true(proc_reading_2_metadata_voltage.has_value());
+    zassert_between_inclusive(proc_reading_2_metadata_voltage.value(), 0.0f, 3.3f);
+    auto proc_reading_2_metadata_raw_value = proc_reading_2.metadata.GetTag<float>(ReadingMetadataTag::RAW_VALUE);
+    zassert_true(proc_reading_2_metadata_raw_value.has_value());
+    zassert_between_inclusive(proc_reading_2_metadata_raw_value.value(), 0.0f, 200.0f);
 
     auto proc_reading_1_opt = sensor_readings_frame->TryGetReading("sensor_1");
     zassert_true(proc_reading_1_opt.has_value());
@@ -320,6 +326,12 @@ ZTEST(sensor_processor, test_ProcessReading) {
     zassert_true(proc_reading_1.value.has_value());
     float proc_reading_1_value = reading_1_value * 2 + proc_reading_2_value + 1;
     zassert_equal(proc_reading_1.value.value(), proc_reading_1_value);
+    auto proc_reading_1_metadata_voltage = proc_reading_1.metadata.GetTag<float>(ReadingMetadataTag::VOLTAGE);
+    zassert_true(proc_reading_1_metadata_voltage.has_value());
+    zassert_between_inclusive(proc_reading_1_metadata_voltage.value(), 0.0f, 3.3f);
+    auto proc_reading_1_metadata_raw_value = proc_reading_1.metadata.GetTag<float>(ReadingMetadataTag::RAW_VALUE);
+    zassert_true(proc_reading_1_metadata_raw_value.has_value());
+    zassert_between_inclusive(proc_reading_1_metadata_raw_value.value(), 0.0f, 100.0f);
 
     auto proc_reading_3_opt = sensor_readings_frame->TryGetReading("sensor_3");
     zassert_true(proc_reading_3_opt.has_value());
@@ -328,6 +340,8 @@ ZTEST(sensor_processor, test_ProcessReading) {
     zassert_true(proc_reading_3.value.has_value());
     float proc_reading_3_value = proc_reading_1_value + 8.34;
     zassert_equal(proc_reading_3.value.value(), proc_reading_3_value);
+    auto proc_reading_3_metadata_raw_value = proc_reading_3.metadata.GetTag<bool>(ReadingMetadataTag::RAW_VALUE);
+    zassert_false(proc_reading_3_metadata_raw_value.has_value());
 
     auto proc_reading_4_opt = sensor_readings_frame->TryGetReading("sensor_4");
     zassert_true(proc_reading_4_opt.has_value());
@@ -335,6 +349,8 @@ ZTEST(sensor_processor, test_ProcessReading) {
     zassert_equal(proc_reading_4.status, ReadingStatus::PROCESSED);
     zassert_true(proc_reading_4.value.has_value());
     zassert_true(proc_reading_4.value.value() == 1 || proc_reading_4.value.value() == 0);
+    auto proc_reading_4_metadata_raw_value = proc_reading_4.metadata.GetTag<bool>(ReadingMetadataTag::RAW_VALUE);
+    zassert_true(proc_reading_4_metadata_raw_value.has_value());
 
     auto proc_reading_5_opt = sensor_readings_frame->TryGetReading("sensor_5");
     zassert_true(proc_reading_5_opt.has_value());
@@ -342,4 +358,6 @@ ZTEST(sensor_processor, test_ProcessReading) {
     zassert_equal(proc_reading_5.status, ReadingStatus::PROCESSED);
     zassert_true(proc_reading_5.value.has_value());
     zassert_true(proc_reading_5.value.value() ==  proc_reading_1_value < 400);
+    auto proc_reading_5_metadata_raw_value = proc_reading_5.metadata.GetTag<bool>(ReadingMetadataTag::RAW_VALUE);
+    zassert_false(proc_reading_5_metadata_raw_value.has_value());
 }
