@@ -55,14 +55,6 @@ using namespace eerie_leap::domain::sensor_domain::configuration;
 using namespace eerie_leap::domain::sensor_domain::models;
 // End test sensors
 
-#ifdef CONFIG_WIFI
-#include "domain/http_domain/services/wifi_ap_service.h"
-#endif // CONFIG_WIFI
-
-#ifdef CONFIG_NETWORKING
-#include "domain/http_domain/services/http_server.h"
-#endif // CONFIG_NETWORKING
-
 using namespace eerie_memory;
 using namespace eerie_leap::utilities::memory;
 using namespace eerie_leap::utilities::dev_tools;
@@ -96,10 +88,6 @@ using namespace eerie_leap::domain::logging_domain::configuration;
 using namespace eerie_leap::domain::canbus_com_domain::services;
 
 using namespace eerie_leap::controllers;
-
-#if defined(CONFIG_WIFI) || defined(CONFIG_NETWORKING)
-using namespace eerie_leap::domain::http_domain::services;
-#endif // CONFIG_WIFI || CONFIG_NETWORKING
 
 LOG_MODULE_REGISTER(main_logger);
 

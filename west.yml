@@ -29,4 +29,3 @@ manifest:
           - littlefs        # littleFS lightweight filesystem
           - mbedtls         # esp32 WiFi
           - tf-psa-crypto   # required by mbedtls
-          - picolibc        # picolibc

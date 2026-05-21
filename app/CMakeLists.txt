@@ -111,9 +111,6 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Process nested HTTP domain CMake file
-add_subdirectory(src/domain/http_domain)
-
 # Collect all source files
 file(GLOB_RECURSE APP_SOURCES
   src/*.cpp

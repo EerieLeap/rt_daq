@@ -4,7 +4,7 @@
         {
             "label": "Build EL02",
             "type": "shell",
-            "command": "west build -p auto -b esp32s3_pm_hw_02/esp32s3/procpu --extra-conf boards/esp32s3_procpu_net.conf ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
+            "command": "west build -p auto -b esp32s3_pm_hw_02/esp32s3/procpu ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -17,7 +17,7 @@
         {
             "label": "Build ESP32S3",
             "type": "shell",
-            "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu --extra-conf boards/esp32s3_procpu_net.conf ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
+            "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -43,7 +43,7 @@
         {
             "label": "Build ESP32S3 With Bootloader",
             "type": "shell",
-            "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu --sysbuild --extra-conf boards/esp32s3_procpu_net.conf ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
+            "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu --sysbuild ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
             "group": {
                 "kind": "build",
                 "isDefault": true
