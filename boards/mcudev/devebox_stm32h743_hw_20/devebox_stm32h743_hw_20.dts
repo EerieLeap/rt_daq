@@ -186,3 +186,7 @@ zephyr_camera_dvp: &dcmi {
 				 &dcmi_d7_pe6>;
 	pinctrl-names = "default";
 };
+
+&pwr {
+	power-supply = "ldo";
+};
