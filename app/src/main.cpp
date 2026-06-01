@@ -144,25 +144,6 @@ int main(void) {
         // sd_fs_service->SdMonitorStart();
     }
 
-    // NOTE: Don't use for WiFi supporting boards as WiFi is broken in Zephyr 4.1 and has memory allocation issues
-    // At least on ESP32S3, it does connect if Zephyr revision is set to "main", but heap allocations cannot be moved
-    // to the external RAM (e.g. PSRAM)
-
-    // NOTE: Wifi thread seems to run out of memory on ESP32S3 after random period of time
-#ifdef CONFIG_WIFI
-    WifiApService::Initialize();
-#endif // CONFIG_WIFI
-
-    // The HTTP Server started here, but objects it uses are initialized later
-    // This is done to prevent memory allocation issues on boards with WiFi support
-    // at least on the ESP32S3 otherwise it struggles sharing memory between http_server_tid and conn_mgr_monitor threads
-    // Or extra heap can be allocated to connection manager through CONFIG_NET_CONNECTION_MANAGER_MONITOR_STACK_SIZE
-    // Which also helps with the issue
-#ifdef CONFIG_NETWORKING
-    HttpServer http_server;
-    http_server.Start();
-#endif // CONFIG_NETWORKING
-
     auto fs_service = std::make_shared<FsService>(DtFs::GetInternalFsMp().value());
     if(!fs_service->Initialize()) {
         LOG_ERR("Failed to initialize File System.");
@@ -297,18 +278,9 @@ int main(void) {
         sensor_readings_frame);
     canbus_scheduler_service->Initialize();
 
-#ifdef CONFIG_NETWORKING
-    http_server.Initialize(
-        system_configuration_manager,
-        adc_configuration_manager,
-        sensors_configuration_manager,
-        sensors_processing_service);
-#endif // CONFIG_NETWORKING
-
     sensors_processing_service->Start();
     canbus_scheduler_service->Start();
 
-    // TODO: Remove this and integrate into http server
     // calibration_service->Start(1);
     // k_msleep(10000);
     // calibration_service->Stop();

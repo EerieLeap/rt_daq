@@ -1,0 +1,5 @@
+qspi_flash: SPI.Macronix_MX25R @ qspi
+    underlyingMemory: qspi_flash_mem
+
+qspi_flash_mem: Memory.MappedMemory @ sysbus 0x90000000
+    size: 0x2000000

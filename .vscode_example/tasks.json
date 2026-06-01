@@ -2,30 +2,26 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build EL02",
+            "label": "Build NativeSim",
             "type": "shell",
-            "command": "west build -p auto -b esp32s3_pm_hw_02/esp32s3/procpu ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
+            "command": "west build -p auto -b native_sim ./app",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": [
-                "$gcc"
-            ],
+            "problemMatcher": ["$gcc"],
             "detail": "Build the Zephyr project using native_sim POSIX board"
         },
         {
-            "label": "Build ESP32S3",
+            "label": "Build EL02",
             "type": "shell",
-            "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
+            "command": "west build -p auto -b esp32s3_pm_hw_02/esp32s3/procpu ./app",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Build the Zephyr project using native_sim POSIX board"
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the Zephyr project using ESP32S3 PM HW02"
         },
         {
             "label": "Build STM32H7",
@@ -35,10 +31,30 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Build the Zephyr project using native_sim POSIX board"
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the Zephyr project using DeveBox stm32h743_hw_20 board"
+        },
+        {
+            "label": "Build H753ZI",
+            "type": "shell",
+            "command": "west build -p auto -b nucleo_h753zi ./app",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the Zephyr project using nucleo_h753zi board"
+        },
+        {
+            "label": "Build ESP32S3",
+            "type": "shell",
+            "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the Zephyr project using ESP32S3 Devkit-C"
         },
         {
             "label": "Build ESP32S3 With Bootloader",
@@ -48,41 +64,13 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Build the Zephyr project using native_sim POSIX board",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the Zephyr project using ESP32S3 Devkit-C",
             "options": {
                 "statusbar": {
                     "hide": true
                 }
             }
-        },
-        {
-            "label": "Build NativeSim",
-            "type": "shell",
-            "command": "west build -p auto -b native_sim ./app",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Build the Zephyr project using native_sim POSIX board"
-        },
-        {
-            "label": "Build QEMUx86_64",
-            "type": "shell",
-            "command": "west build -p auto -b qemu_x86_64 ./app",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Build the Zephyr project using qemu_x86_64 QEMU sim"
         },
         {
             "label": "Build QEMU Cortex A9",
@@ -92,18 +80,17 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "detail": "Build the Zephyr project using native_sim POSIX board"
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the Zephyr project using QEMU Cortex A9"
         },
         {
             "label": "Run DBG Server",
             "group": "build",
             "detail": "Prepare debugserver for QEMU. Press F5",
             "type": "shell",
-            "command": "ninja debugserver -C build -v",
-            "args": [],
+			"command": "ninja debugserver -C build -v",
+            "args": [
+            ],
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",

@@ -1,0 +1,28 @@
+:name: Nucleo H753ZI
+:description: This script runs Zephyr on Nucleo H753ZI
+
+$name?="Nucleo H753ZI"
+$extended_repl?="/home/ubuntu/zephyr/workspace/project/renode/nucleo_h753zi.repl"
+$bin_path?="/home/ubuntu/zephyr/workspace/project/build/zephyr/zephyr.elf"
+
+# Create Machine & Load config
+mach create $name
+machine LoadPlatformDescription @platforms/boards/nucleo_h753zi.repl
+machine LoadPlatformDescription $extended_repl
+
+# Create a terminal window showing the output of UART2
+# To connect: telnet localhost 3456
+emulation CreateServerSocketTerminal 3456 "uart2_term" false
+uart2_term AttachTo sysbus.usart3
+logLevel 0
+
+# Enable GDB
+machine StartGdbServer 3333
+
+macro reset
+"""
+    sysbus LoadELF $bin_path
+"""
+
+runMacro $reset
+start
