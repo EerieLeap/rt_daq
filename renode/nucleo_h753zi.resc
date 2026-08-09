@@ -14,7 +14,7 @@ machine LoadPlatformDescription $extended_repl
 # To connect: telnet localhost 3456
 emulation CreateServerSocketTerminal 3456 "uart2_term" false
 uart2_term AttachTo sysbus.usart3
-logLevel 0
+# logLevel 0
 
 # Enable GDB
 machine StartGdbServer 3333

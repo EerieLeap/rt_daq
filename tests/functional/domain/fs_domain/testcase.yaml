@@ -1,9 +1,0 @@
-common:
-  tags:
-    - domain
-    - fs_subsys
-  platform_allow:
-    - native_sim
-
-tests:
-  functional.fs_subsys: {}

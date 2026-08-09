@@ -1,7 +1,0 @@
-common:
-  tags: subsys.mdf
-  platform_allow:
-    - native_sim
-
-tests:
-  unit.subsys.mdf: {}

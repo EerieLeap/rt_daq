@@ -1,0 +1,14 @@
+services:
+  zephyr-dev:
+    build:
+      context: ..
+      dockerfile: Dockerfile.dev
+    environment:
+      - DISPLAY=:0
+    volumes:
+      - /dev:/dev:rw,rslave
+      - ..:/home/ubuntu/zephyr/workspace/project:cached
+      - ${HOME}/.Xauthority:/home/ubuntu/.Xauthority:ro
+    command: sleep infinity
+    privileged: true
+    pid: host

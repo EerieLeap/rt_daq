@@ -6,46 +6,54 @@ ARG VNCPASSWD=zephyr
 ARG UBUNTU_MIRROR_ARCHIVE=archive.ubuntu.com/ubuntu
 ARG UBUNTU_MIRROR_SECURITY=security.ubuntu.com/ubuntu
 ARG UBUNTU_MIRROR_PORTS=ports.ubuntu.com/ubuntu-ports
+ARG RENODE_DEST=/opt/renode/
+ARG RENODE_URL=https://builds.renode.io/renode-latest.linux-dotnet.tar.gz
 
 SHELL ["/bin/bash", "-c"]
 
 USER root
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends git curl ca-certificates ninja-build gperf \
+    apt-get install -y --no-install-recommends \
+        sudo locales git curl ca-certificates ninja-build gperf \
         ccache dfu-util device-tree-compiler wget python3-dev python3-venv python3-tk \
         xz-utils file make gcc gcc-multilib g++-multilib libsdl2-dev libmagic1 \
         x11vnc xvfb openbox dos2unix xterm usbutils openocd gdb \
-        iproute2 npm socat emacs tree locales && \
-        apt-get install -y sudo && \
+        iproute2 socat emacs tree \
+        python3-pip telnet dotnet-runtime-8.0 && \
     rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g html-minifier-terser
+# Install Renode from the dotnet tarball (avoids the .deb's GUI deps)
+RUN wget ${RENODE_URL} -O /opt/renode.tar.gz && \
+    mkdir -p ${RENODE_DEST} && \
+    tar -xf /opt/renode.tar.gz -C ${RENODE_DEST} --strip-components=1 && \
+    rm /opt/renode.tar.gz
+ENV PATH="$PATH:${RENODE_DEST}"
 
-RUN usermod -aG sudo ${USERNAME}
-RUN usermod -aG root ${USERNAME}
+# Renode's own Python test/tooling requirements
+RUN pip3 install --break-system-packages -r ${RENODE_DEST}tests/requirements.txt --no-cache-dir
 
-RUN echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/${USERNAME}
+RUN usermod -aG sudo ${USERNAME} && \
+    usermod -aG root ${USERNAME} && \
+    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/${USERNAME}
 
 # Add entrypoint and permissions
-ADD entrypoint.sh /home/${USERNAME}/entrypoint.sh
+COPY entrypoint.sh /home/${USERNAME}/entrypoint.sh
 RUN chmod +x /home/${USERNAME}/entrypoint.sh
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
-    locale-gen
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
+    locale-gen && \
+    echo "LANG=en_US.UTF-8" > /etc/default/locale && \
+    echo "LANGUAGE=en_US:en" >> /etc/default/locale && \
+    echo "LC_ALL=en_US.UTF-8" >> /etc/default/locale
 
 USER ${USERNAME}
 
-# Configure display
 ENV DISPLAY=:0
 
 RUN sudo apt-get update
 
-# VNC password
 RUN mkdir -p /home/${USERNAME}/.vnc && \
     x11vnc -storepasswd ${VNCPASSWD} /home/${USERNAME}/.vnc/passwd
 
@@ -61,10 +69,9 @@ RUN if [ -f "/home/${USERNAME}/zephyr/workspace/project/tools/st-stm32cubeclt_1.
     echo 'export PATH=$PATH:/opt/st/stm32cubeclt_1.20.0/STM32CubeProgrammer/bin' >> "/home/${USERNAME}/.bashrc"; \
 fi
 
-# Setup OpenOCD for ESP32
 RUN curl -sL -o /home/${USERNAME}/zephyr/workspace/utilities/openocd.tar.gz \
-    https://github.com/espressif/openocd-esp32/releases/download/v0.12.0-esp32-20250707/openocd-esp32-linux-amd64-0.12.0-esp32-20250707.tar.gz
-RUN tar -xvzf /home/${USERNAME}/zephyr/workspace/utilities/openocd.tar.gz -C /home/${USERNAME}/zephyr/workspace/utilities
+    https://github.com/espressif/openocd-esp32/releases/download/v0.12.0-esp32-20250707/openocd-esp32-linux-amd64-0.12.0-esp32-20250707.tar.gz && \
+    tar -xvzf /home/${USERNAME}/zephyr/workspace/utilities/openocd.tar.gz -C /home/${USERNAME}/zephyr/workspace/utilities
 
 RUN python3 -m venv /home/${USERNAME}/zephyr/.venv
 
@@ -87,8 +94,8 @@ RUN source /home/${USERNAME}/zephyr/.venv/bin/activate && \
     cd /home/${USERNAME}/zephyr/workspace && \
     west init -l /home/${USERNAME}/zephyr/workspace/project && \
     west update && \
-    west zephyr-export && \
     west packages pip --install && \
+    west zephyr-export && \
     west blobs fetch hal_espressif
 
 RUN source /home/${USERNAME}/zephyr/.venv/bin/activate && \

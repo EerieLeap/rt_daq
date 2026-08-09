@@ -1,7 +1,0 @@
-common:
-  tags: subsys.math_parser
-  platform_allow:
-    - native_sim
-
-tests:
-  unit.subsys.math_parser: {}

@@ -1,7 +1,0 @@
-common:
-  tags: configuration
-  platform_allow:
-    - native_sim
-
-tests:
-  functional.configuration: {}

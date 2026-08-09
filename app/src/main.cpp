@@ -111,7 +111,13 @@ void SetupLoggingConfiguration(std::shared_ptr<SensorsConfigurationManager> sens
 // Formula evaluation takes minimum of 1800us, applicable to virtual sensors
 
 int main(void) {
-    DtConfigurator::Initialize();
+    DtConfigurator::Initialize(
+        DtFeature::INTERNAL_FS
+        | DtFeature::SD_FS
+        | DtFeature::GPIO
+        | DtFeature::ADC
+        | DtFeature::DISPLAY
+        | DtFeature::CANBUS);
 
     std::shared_ptr<Cfb> cfb = nullptr;
 

@@ -1,7 +1,0 @@
-common:
-  tags: utilities
-  platform_allow:
-    - native_sim
-
-tests:
-  unit.utilities: {}

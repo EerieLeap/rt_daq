@@ -12,10 +12,10 @@
 
 		intfs0: intfs0 {
 			compatible = "zephyr,fstab,littlefs";
-			read-size = <32>;
+			read-size = <1>;
 			prog-size = <32>;
 			cache-size = <256>;
-			lookahead-size = <64>;
+			lookahead-size = <32>;
 			block-cycles = <512>;
 			partition = <&intfs0_partition>;
 			mount-point = "/intfs0";
@@ -24,15 +24,21 @@
 	};
 };
 
-// &sdmmc1 {
-// 	status = "okay";
-// 	pinctrl-0 = <&sdmmc1_d0_pc8
-// 		     &sdmmc1_ck_pc12
-// 		     &sdmmc1_cmd_pd2>;
+// &flash0 {
+// 	reg = < 0x8000000 0x300000 >;
+// 	ranges = < 0x0 0x8000000 0x300000 >;
 
-// 	pinctrl-names = "default";
+// 	partitions {
+// 		#address-cells = <1>;
+// 		#size-cells = <1>;
+// 		ranges;
 
-// 	disk-name = "SD";
+// 		intfs0_partition: partition@180000 {
+// 			compatible = "zephyr,mapped-partition";
+// 			label = "intfs0_storage";
+// 			reg = <0x180000 DT_SIZE_M(1)>;
+// 		};
+// 	};
 // };
 
 &quadspi {

@@ -1,0 +1,31 @@
+{
+  "name": "rt_daq (Zephyr Dev)",
+  "dockerComposeFile": "compose.yaml",
+  "service": "zephyr-dev",
+  "workspaceFolder": "/home/ubuntu/zephyr/workspace/project",
+  "remoteUser": "ubuntu",
+
+  // The image only activates the west/cmake/zcbor Python venv via .bashrc,
+  // which non-interactive shells (e.g. tasks) don't source. Put it on PATH
+  // explicitly so `west`, `cmake`, etc. resolve everywhere.
+  "remoteEnv": {
+    "PATH": "/home/ubuntu/zephyr/.venv/bin:${containerEnv:PATH}"
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "cmake.sourceDirectory": "./app",
+        "python.defaultInterpreterPath": "/home/ubuntu/zephyr/.venv/bin/python3"
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "marus25.cortex-debug",
+        "ms-python.python",
+        "nordic-semiconductor.nrf-devicetree",
+        "actboy168.tasks"
+      ]
+    }
+  }
+}

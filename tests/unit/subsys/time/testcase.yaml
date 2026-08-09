@@ -1,7 +1,0 @@
-common:
-  tags: subsys.time
-  platform_allow:
-    - native_sim
-
-tests:
-  unit.subsys.time: {}

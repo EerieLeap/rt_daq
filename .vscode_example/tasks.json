@@ -113,9 +113,9 @@
         {
             "label": "Run Tests",
             "type": "shell",
-            "command": "west twister -c --disable-warnings-as-errors -O ./twister-out -T ./tests",
+            "command": "west twister -c --disable-warnings-as-errors -O ./twister-out -T ./modules/eerie_leap_rt_core/tests",
             "group": "none",
-            "detail": "Run tests using twister"
+            "detail": "Run rt_core tests using twister"
         },
         {
             "label": "Clean Build",
