@@ -138,8 +138,8 @@ int main(void) {
 
     std::shared_ptr<SdmmcService> sd_fs_service = nullptr;
     auto sd_fs_mp = DtFs::GetSdFsMp();
-    if(sd_fs_mp.has_value()) {
-        sd_fs_service = std::make_shared<SdmmcService>(sd_fs_mp.value(), DtFs::GetSdDiskName());
+    if(sd_fs_mp != nullptr) {
+        sd_fs_service = std::make_shared<SdmmcService>(sd_fs_mp, DtFs::GetSdDiskName());
         sd_fs_service->RegisterIsSdCardPresentHandler(DtFs::IsSdCardPresent);
         if(!sd_fs_service->Initialize()) {
             LOG_ERR("Failed to initialize SD File System.");
@@ -150,7 +150,7 @@ int main(void) {
         // sd_fs_service->SdMonitorStart();
     }
 
-    auto fs_service = std::make_shared<FsService>(DtFs::GetInternalFsMp().value());
+    auto fs_service = std::make_shared<FsService>(DtFs::GetInternalFsMp());
     if(!fs_service->Initialize()) {
         LOG_ERR("Failed to initialize File System.");
         return -1;
@@ -181,7 +181,10 @@ int main(void) {
 
     AdcFactory adc_factory(DtAdc::Get);
     auto adc_manager = adc_factory.Create();
-    adc_manager->Initialize();
+    if(!adc_manager->Initialize()) {
+        LOG_ERR("Failed to initialize ADC.");
+        return -1;
+    }
 
     auto adc_configuration_manager = std::make_shared<AdcConfigurationManager>(
         std::move(cbor_adc_config_service), std::move(json_adc_config_service), adc_manager);

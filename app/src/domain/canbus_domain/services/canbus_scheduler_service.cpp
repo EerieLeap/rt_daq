@@ -26,12 +26,13 @@ CanbusSchedulerService::CanbusSchedulerService(
     can_frame_processors_->push_back(std::make_shared<ScriptProcessor>(sensor_readings_frame_, "process_can_frame"));
 };
 
-void CanbusSchedulerService::Initialize() {
+bool CanbusSchedulerService::DoInitialize() {
     work_queue_thread_ = std::make_unique<WorkQueueThread>(
         "canbus_scheduler_service",
         thread_stack_size_,
         thread_priority_);
-    work_queue_thread_->Initialize();
+
+    return work_queue_thread_->Initialize();
 }
 
 WorkQueueTaskResult CanbusSchedulerService::ProcessCanbusWorkTask(CanbusTask* task) {
@@ -108,7 +109,16 @@ void CanbusSchedulerService::StartTasks() {
     k_sleep(K_MSEC(1));
 }
 
-void CanbusSchedulerService::Start() {
+void CanbusSchedulerService::CancelTasks() {
+    for(auto& work_queue_task : work_queue_tasks_) {
+        LOG_INF("Canceling task for Frame ID: %d", work_queue_task.GetUserdata()->message_configuration->frame_id);
+
+        while(work_queue_task.Cancel())
+            k_sleep(K_MSEC(1));
+    }
+}
+
+bool CanbusSchedulerService::DoStart() {
     auto canbus_configuration = canbus_configuration_manager_->Get();
 
     for(const auto& [bus_channel, channel_configuration] : canbus_configuration->channel_configurations) {
@@ -126,31 +136,40 @@ void CanbusSchedulerService::Start() {
     StartTasks();
 
     LOG_INF("CANBus Scheduler Service started");
+
+    return true;
 }
 
-void CanbusSchedulerService::Restart() {
-    Pause();
+bool CanbusSchedulerService::DoStop() {
+    CancelTasks();
     work_queue_tasks_.clear();
-    sensor_readings_frame_->ClearReadings();
-    Start();
-}
-
-void CanbusSchedulerService::Pause() {
-    for(auto& work_queue_task : work_queue_tasks_) {
-        LOG_INF("Canceling task for Frame ID: %d", work_queue_task.GetUserdata()->message_configuration->frame_id);
-
-        while(work_queue_task.Cancel())
-            k_sleep(K_MSEC(1));
-    }
 
     LOG_INF("CANBus Scheduler Service stopped.");
+
+    return true;
 }
 
-void CanbusSchedulerService::Resume() {
-    for(auto& work_queue_task : work_queue_tasks_)
-        work_queue_task.Schedule();
+bool CanbusSchedulerService::Restart() {
+    Stop();
+    sensor_readings_frame_->ClearReadings();
+
+    return Start();
+}
+
+bool CanbusSchedulerService::DoPause() {
+    CancelTasks();
+
+    LOG_INF("CANBus Scheduler Service paused.");
+
+    return true;
+}
+
+bool CanbusSchedulerService::DoResume() {
+    StartTasks();
 
     LOG_INF("CANBus Scheduler Service resumed.");
+
+    return true;
 }
 
 void CanbusSchedulerService::InitializeScript(const CanMessageConfiguration& message_configuration) {

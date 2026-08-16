@@ -35,8 +35,8 @@ public:
         std::shared_ptr<CanbusComService> canbus_com_service,
         std::shared_ptr<DisplayController> display_controller);
 
-    int LogWriterStart();
-    int LogWriterStop();
+    bool LogWriterStart();
+    bool LogWriterStop();
 };
 
 } // namespace eerie_leap::controllers

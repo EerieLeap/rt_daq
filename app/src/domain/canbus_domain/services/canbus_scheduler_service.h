@@ -5,6 +5,7 @@
 
 #include <zephyr/kernel.h>
 
+#include "subsys/threading/service_base.h"
 #include "subsys/threading/work_queue_thread.h"
 #include "domain/sensor_domain/utilities/sensor_readings_frame.hpp"
 #include "domain/canbus_domain/configuration/canbus_configuration_manager.h"
@@ -17,6 +18,8 @@ namespace eerie_leap::domain::canbus_domain::services {
 
 namespace threading = eerie_leap::subsys::threading;
 
+using threading::ServiceBase;
+using threading::ServiceState;
 using threading::WorkQueueThread;
 using threading::WorkQueueTaskResult;
 using eerie_leap::domain::sensor_domain::utilities::SensorReadingsFrame;
@@ -24,7 +27,7 @@ using eerie_leap::domain::canbus_domain::configuration::CanbusConfigurationManag
 using eerie_leap::domain::canbus_domain::models::CanMessageConfiguration;
 using eerie_leap::domain::canbus_domain::services::CanbusService;
 
-class CanbusSchedulerService {
+class CanbusSchedulerService final : public ServiceBase<> {
 private:
     static constexpr int thread_stack_size_ = 8192;
     static constexpr int thread_priority_ = 6;
@@ -39,24 +42,28 @@ private:
     std::shared_ptr<std::vector<std::shared_ptr<ICanFrameProcessor>>> can_frame_processors_;
 
     void StartTasks();
+    void CancelTasks();
     std::unique_ptr<CanbusTask> CreateTask(uint8_t bus_channel, std::shared_ptr<CanMessageConfiguration> message_configuration);
     static WorkQueueTaskResult ProcessCanbusWorkTask(CanbusTask* task);
 
     void InitializeScript(const CanMessageConfiguration& message_configuration);
+
+    bool DoInitialize() override;
+    bool DoStart() override;
+    bool DoStop() override;
+    bool DoPause() override;
+    bool DoResume() override;
 
 public:
     CanbusSchedulerService(
         std::shared_ptr<CanbusConfigurationManager> canbus_configuration_manager,
         std::shared_ptr<CanbusService> canbus_service,
         std::shared_ptr<SensorReadingsFrame> sensor_readings_frame);
-    ~CanbusSchedulerService() = default;
+    ~CanbusSchedulerService() override = default;
 
-    void Initialize();
+    [[nodiscard]] bool IsPausable() const noexcept override { return true; }
 
-    void Start();
-    void Restart();
-    void Pause();
-    void Resume();
+    bool Restart();
 };
 
 } // namespace eerie_leap::domain::canbus_domain::services

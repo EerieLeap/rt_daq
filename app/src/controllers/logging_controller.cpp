@@ -30,34 +30,34 @@ LoggingController::LoggingController(
                 return false;
 
             if(command.value().IsStart())
-                return LogWriterStart() == 0;
+                return LogWriterStart();
             else
-                return LogWriterStop() == 0;
+                return LogWriterStop();
         });
 }
 
-int LoggingController::LogWriterStart() {
+bool LoggingController::LogWriterStart() {
     if(log_writer_service_->IsRunning())
-        return 0;
+        return true;
 
-    int res = log_writer_service_->LogWriterStart();
+    bool started = log_writer_service_->Start();
 
-    if(res == 0)
+    if(started)
         display_controller_->AddStatus("log");
 
-    return res;
+    return started;
 }
 
-int LoggingController::LogWriterStop() {
+bool LoggingController::LogWriterStop() {
     if(!log_writer_service_->IsRunning())
-        return 0;
+        return true;
 
-    int res = log_writer_service_->LogWriterStop();
+    bool stopped = log_writer_service_->Stop();
 
-    if(res == 0)
+    if(stopped)
         display_controller_->RemoveStatus("log");
 
-    return res;
+    return stopped;
 }
 
 } // namespace eerie_leap::controllers
