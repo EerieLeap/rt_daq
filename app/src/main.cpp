@@ -323,7 +323,6 @@ void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus
     canbus_channel_configuration_0.bus_channel = 0;
     canbus_channel_configuration_0.bitrate = 1'000'000;
     // canbus_channel_configuration_0.data_bitrate = 2000000;
-    // canbus_channel_configuration_0.dbc_file_path = "configuration/canbus_0.dbc";
 
     // auto message_configuration_0 = make_shared_pmr<CanMessageConfiguration>(Mrm::GetExtPmr());
     // message_configuration_0->frame_id = 790;
