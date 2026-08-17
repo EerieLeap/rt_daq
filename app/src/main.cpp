@@ -192,9 +192,11 @@ int main(void) {
     // TODO: For test purposes only
     // SetupAdcConfiguration(adc_configuration_manager);
 
-    GpioFactory gpio_factory(DtGpio::Get);
-    auto gpio = gpio_factory.Create();
-    gpio->Initialize();
+    std::shared_ptr<IGpio> gpio = GpioFactory(DtGpio::Get).Create();
+    if(gpio->Initialize() != 0) {
+        LOG_ERR("Failed to initialize GPIO.");
+        gpio = nullptr;
+    }
 
     auto system_configuration_manager = std::make_shared<SystemConfigurationManager>(
         std::move(cbor_system_config_service));
@@ -212,7 +214,7 @@ int main(void) {
         std::move(cbor_sensors_config_service),
         std::move(json_sensors_config_service),
         sd_fs_service,
-        gpio->GetChannelCount(),
+        gpio != nullptr ? gpio->GetChannelCount() : 0,
         adc_configuration_manager->Get()->GetChannelCount());
 
     auto canbus_service = std::make_shared<CanbusService>(DtCanbus::Get, canbus_configuration_manager);
@@ -258,7 +260,8 @@ int main(void) {
         time_service,
         guid_generator,
         sensor_readings_frame,
-        canbus_service);
+        canbus_service,
+        gpio);
 
     auto sensor_reader_factory = std::make_shared<SensorReaderFactory>(
         time_service,
