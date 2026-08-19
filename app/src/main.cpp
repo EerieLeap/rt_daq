@@ -22,7 +22,6 @@
 #include "subsys/time/boot_elapsed_time_provider.h"
 
 #include "configuration/services/cbor_configuration_service.h"
-#include "configuration/services/json_configuration_service.h"
 
 #include "domain/system_domain/configuration/system_configuration_manager.h"
 #include "domain/sensor_domain/configuration/adc_configuration_manager.h"
@@ -70,7 +69,6 @@ using namespace eerie_leap::subsys::canbus;
 using namespace eerie_leap::subsys::adc;
 using namespace eerie_leap::subsys::adc::utilities;
 
-using namespace eerie_leap::configuration::json::configs;
 using namespace eerie_leap::configuration::services;
 
 using namespace eerie_leap::domain::canbus_domain::models;
@@ -172,13 +170,6 @@ int main(void) {
     auto cbor_canbus_config_service = std::make_unique<CborConfigurationService<CborCanbusConfig>>(
         "canbus_config", fs_service);
 
-    auto json_adc_config_service = std::make_unique<JsonConfigurationService<JsonAdcConfig>>(
-        "adc_config", sd_fs_service);
-    auto json_sensors_config_service = std::make_unique<JsonConfigurationService<JsonSensorsConfig>>(
-        "sensors_config", sd_fs_service);
-    auto json_canbus_config_service = std::make_unique<JsonConfigurationService<JsonCanbusConfig>>(
-        "canbus_config", sd_fs_service);
-
     AdcFactory adc_factory(DtAdc::Get);
     auto adc_manager = adc_factory.Create();
     if(!adc_manager->Initialize()) {
@@ -187,7 +178,7 @@ int main(void) {
     }
 
     auto adc_configuration_manager = std::make_shared<AdcConfigurationManager>(
-        std::move(cbor_adc_config_service), std::move(json_adc_config_service), adc_manager);
+        std::move(cbor_adc_config_service), adc_manager);
 
     // TODO: For test purposes only
     // SetupAdcConfiguration(adc_configuration_manager);
@@ -205,14 +196,13 @@ int main(void) {
     // SetupSystemConfiguration(system_configuration_manager);
 
     auto canbus_configuration_manager = std::make_shared<CanbusConfigurationManager>(
-        std::move(cbor_canbus_config_service), std::move(json_canbus_config_service), sd_fs_service);
+        std::move(cbor_canbus_config_service), sd_fs_service);
 
     // TODO: For test purposes only
     SetupCanbusConfiguration(canbus_configuration_manager);
 
     auto sensors_configuration_manager = std::make_shared<SensorsConfigurationManager>(
         std::move(cbor_sensors_config_service),
-        std::move(json_sensors_config_service),
         sd_fs_service,
         gpio != nullptr ? gpio->GetChannelCount() : 0,
         adc_configuration_manager->Get()->GetChannelCount());
@@ -232,11 +222,9 @@ int main(void) {
     if(sd_fs_service != nullptr) {
         auto cbor_logging_config_service = std::make_unique<CborConfigurationService<CborLoggingConfig>>(
             "logging_config", fs_service);
-        auto json_logging_config_service = std::make_unique<JsonConfigurationService<JsonLoggingConfig>>(
-            "logging_config", sd_fs_service);
 
         auto logging_configuration_manager = std::make_shared<LoggingConfigurationManager>(
-            std::move(cbor_logging_config_service), std::move(json_logging_config_service));
+            std::move(cbor_logging_config_service));
 
         // TODO: For test purposes only
         // SetupLoggingConfiguration(sensors_configuration_manager, logging_configuration_manager);

@@ -49,9 +49,8 @@ The system follows a pipeline architecture where sensor data flows from hardware
 
 ### Configuration System
 
-The system employs a dual-format configuration architecture:
-- **JSON**: Human-readable format for user-supplied device configuration and persistence
-- **CBOR**: Compact binary format for efficient runtime configuration management
+The system uses a compact runtime configuration model:
+- **CBOR**: Efficient binary format for configuration management and persistence
 - Configuration Managers bridge user settings with domain service initialization
 
 ### Data Flow
@@ -74,7 +73,7 @@ The system leverages Zephyr RTOS threading primitives:
 ## Project Structure
 
 - `app/src` - main application source code
-    - `app/src/configuration` - JSON and CBOR device configuration related services and schemas
+    - `app/src/configuration` - CBOR-based configuration services and schemas
     - `app/src/controllers` - interfaces for device control and data access
     - `app/src/domain` - business logic layer
     - `app/src/subsys` - independent subsystems and adapters
@@ -88,11 +87,9 @@ The system leverages Zephyr RTOS threading primitives:
 
 ### Configuration
 
-The configuration system employs two separate subsystems: JSON and CBOR. JSON is used for user-supplied device configuration. CBOR is used for internal configuration management, as the binary format is more compact and faster to manipulate.
+The configuration system uses a CBOR-based runtime model for device settings and data management. The project-specific configuration layer wraps schema-based encoding and decoding with C++-friendly helpers for runtime use.
 
-[Boost.JSON](https://www.boost.org/doc/libs/latest/libs/json/doc/html/index.html) is used for JSON parsing and serialization.
-
-[zcbor](https://github.com/NordicSemiconductor/zcbor) is used for CBOR parsing and serialization. The **zcbor** library provides helper methods to set up serializers and deserializers, and helper scripts can be used to generate them. The project's main CMake file contains helper scripts to generate CBOR serializers and deserializers. However, since the generated code doesn't support the C++ features this project requires, the current implementation uses the generated helper methods only as reference for defining C++ feature-rich versions.
+[zcbor](https://github.com/NordicSemiconductor/zcbor) is used for CBOR parsing and serialization. The **zcbor** library provides helper methods to set up serializers and deserializers, and helper scripts can be used to generate them. The project's main CMake file contains helper scripts to generate CBOR serializers and deserializers. The generated code is used as a reference for project-specific C++ adapters when tighter integration with the application code is required.
 
 ### Subsystems
 

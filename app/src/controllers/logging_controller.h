@@ -19,8 +19,8 @@ using eerie_leap::domain::canbus_com_domain::services::CanbusComService;
 
 class LoggingController {
 private:
-    std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager_;
     std::shared_ptr<LogWriterService> log_writer_service_;
+    std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager_;
     std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager_;
     std::shared_ptr<CanbusComService> canbus_com_service_;
     std::shared_ptr<DisplayController> display_controller_;
