@@ -161,14 +161,21 @@ int main(void) {
 
     auto guid_generator = std::make_shared<GuidGenerator>();
 
+    int config_work_queue_stack_size = 6144;
+    int config_work_queue_priority = 5;
+    auto config_work_queue_thread = std::make_shared<WorkQueueThread>(
+        "config_work_queue",
+        config_work_queue_stack_size,
+        config_work_queue_priority);
+    if(!config_work_queue_thread->Initialize()) {
+        LOG_ERR("Failed to initialize the configuration work queue.");
+        return -1;
+    }
+
     auto cbor_system_config_service = std::make_unique<CborConfigurationService<CborSystemConfig>>(
-        "system_config", fs_service);
-    auto cbor_adc_config_service = std::make_unique<CborConfigurationService<CborAdcConfig>>(
-        "adc_config", fs_service);
-    auto cbor_sensors_config_service = std::make_unique<CborConfigurationService<CborSensorsConfig>>(
-        "sensors_config", fs_service);
-    auto cbor_canbus_config_service = std::make_unique<CborConfigurationService<CborCanbusConfig>>(
-        "canbus_config", fs_service);
+        "system_config", fs_service, config_work_queue_thread);
+    auto system_configuration_manager = std::make_shared<SystemConfigurationManager>(
+        std::move(cbor_system_config_service));
 
     AdcFactory adc_factory(DtAdc::Get);
     auto adc_manager = adc_factory.Create();
@@ -177,6 +184,8 @@ int main(void) {
         return -1;
     }
 
+    auto cbor_adc_config_service = std::make_unique<CborConfigurationService<CborAdcConfig>>(
+        "adc_config", fs_service, config_work_queue_thread);
     auto adc_configuration_manager = std::make_shared<AdcConfigurationManager>(
         std::move(cbor_adc_config_service), adc_manager);
 
@@ -189,18 +198,19 @@ int main(void) {
         gpio = nullptr;
     }
 
-    auto system_configuration_manager = std::make_shared<SystemConfigurationManager>(
-        std::move(cbor_system_config_service));
-
     // TODO: For test purposes only
     // SetupSystemConfiguration(system_configuration_manager);
 
+    auto cbor_canbus_config_service = std::make_unique<CborConfigurationService<CborCanbusConfig>>(
+        "canbus_config", fs_service, config_work_queue_thread);
     auto canbus_configuration_manager = std::make_shared<CanbusConfigurationManager>(
         std::move(cbor_canbus_config_service), sd_fs_service);
 
     // TODO: For test purposes only
     SetupCanbusConfiguration(canbus_configuration_manager);
 
+    auto cbor_sensors_config_service = std::make_unique<CborConfigurationService<CborSensorsConfig>>(
+        "sensors_config", fs_service, config_work_queue_thread);
     auto sensors_configuration_manager = std::make_shared<SensorsConfigurationManager>(
         std::move(cbor_sensors_config_service),
         sd_fs_service,
@@ -221,8 +231,7 @@ int main(void) {
     std::shared_ptr<LoggingController> logging_controller = nullptr;
     if(sd_fs_service != nullptr) {
         auto cbor_logging_config_service = std::make_unique<CborConfigurationService<CborLoggingConfig>>(
-            "logging_config", fs_service);
-
+            "logging_config", fs_service, config_work_queue_thread);
         auto logging_configuration_manager = std::make_shared<LoggingConfigurationManager>(
             std::move(cbor_logging_config_service));
 
