@@ -23,6 +23,7 @@
 
 #include "configuration/services/cbor_configuration_service.h"
 
+#include "domain/configuration_domain/services/configuration_service.h"
 #include "domain/system_domain/configuration/system_configuration_manager.h"
 #include "domain/sensor_domain/configuration/adc_configuration_manager.h"
 #include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
@@ -35,11 +36,13 @@
 #include "domain/canbus_domain/services/canbus_service.h"
 #include "domain/canbus_domain/services/canbus_scheduler_service.h"
 #include "domain/canbus_com_domain/services/canbus_com_service.h"
+#include "domain/canbus_com_domain/smp/network_mgmt_group.h"
 
 #include "domain/logging_domain/services/log_writer_service.h"
 
 #include "controllers/logging_controller.h"
 #include "controllers/display_controller.h"
+#include "controllers/management_controller.h"
 
 // Test sensors includes
 #include "subsys/math_parser/expression_evaluator.h"
@@ -71,6 +74,7 @@ using namespace eerie_leap::subsys::adc::utilities;
 
 using namespace eerie_leap::configuration::services;
 
+using namespace eerie_leap::domain::configuration_domain::services;
 using namespace eerie_leap::domain::canbus_domain::models;
 using namespace eerie_leap::domain::canbus_domain::services;
 using namespace eerie_leap::domain::canbus_domain::configuration;
@@ -84,6 +88,7 @@ using namespace eerie_leap::domain::logging_domain::models;
 using namespace eerie_leap::domain::logging_domain::services;
 using namespace eerie_leap::domain::logging_domain::configuration;
 using namespace eerie_leap::domain::canbus_com_domain::services;
+using namespace eerie_leap::domain::canbus_com_domain::smp;
 
 using namespace eerie_leap::controllers;
 
@@ -177,6 +182,10 @@ int main(void) {
     auto system_configuration_manager = std::make_shared<SystemConfigurationManager>(
         std::move(cbor_system_config_service));
 
+    auto configuration_service = std::make_shared<ConfigurationService>();
+    configuration_service->RegisterCborConfigurationManager(
+        ConfigurationService::Type::System, system_configuration_manager);
+
     AdcFactory adc_factory(DtAdc::Get);
     auto adc_manager = adc_factory.Create();
     if(!adc_manager->Initialize()) {
@@ -188,6 +197,8 @@ int main(void) {
         "adc_config", fs_service, config_work_queue_thread);
     auto adc_configuration_manager = std::make_shared<AdcConfigurationManager>(
         std::move(cbor_adc_config_service), adc_manager);
+    configuration_service->RegisterCborConfigurationManager(
+        ConfigurationService::Type::Adc, adc_configuration_manager);
 
     // TODO: For test purposes only
     // SetupAdcConfiguration(adc_configuration_manager);
@@ -205,6 +216,8 @@ int main(void) {
         "canbus_config", fs_service, config_work_queue_thread);
     auto canbus_configuration_manager = std::make_shared<CanbusConfigurationManager>(
         std::move(cbor_canbus_config_service), sd_fs_service);
+    configuration_service->RegisterCborConfigurationManager(
+        ConfigurationService::Type::Canbus, canbus_configuration_manager);
 
     // TODO: For test purposes only
     SetupCanbusConfiguration(canbus_configuration_manager);
@@ -216,12 +229,17 @@ int main(void) {
         sd_fs_service,
         gpio != nullptr ? gpio->GetChannelCount() : 0,
         adc_configuration_manager->Get()->GetChannelCount());
+    configuration_service->RegisterCborConfigurationManager(
+        ConfigurationService::Type::Sensors, sensors_configuration_manager);
 
     auto canbus_service = std::make_shared<CanbusService>(DtCanbus::Get, canbus_configuration_manager);
 
     auto canbus_com_service = std::make_shared<CanbusComService>(canbus_service);
     canbus_com_service->Initialize();
     canbus_com_service->Start();
+
+    auto network_mgmt_group = std::make_unique<NetworkMgmtGroup>(canbus_com_service->GetNetworkInfo());
+    network_mgmt_group->Register();
 
     // TODO: For test purposes only
     SetupTestSensors(sensors_configuration_manager);
@@ -234,6 +252,8 @@ int main(void) {
             "logging_config", fs_service, config_work_queue_thread);
         auto logging_configuration_manager = std::make_shared<LoggingConfigurationManager>(
             std::move(cbor_logging_config_service));
+        configuration_service->RegisterCborConfigurationManager(
+            ConfigurationService::Type::Logging, logging_configuration_manager);
 
         // TODO: For test purposes only
         // SetupLoggingConfiguration(sensors_configuration_manager, logging_configuration_manager);
@@ -252,6 +272,16 @@ int main(void) {
             canbus_com_service,
             display_controller);
     }
+
+    // Constructed after every configuration manager is registered.
+    const auto system_configuration = system_configuration_manager->Get();
+    auto management_controller = std::make_shared<ManagementController>(
+        configuration_service,
+        config_work_queue_thread,
+        canbus_com_service->GetNetworkInfo(),
+        system_configuration != nullptr ? system_configuration->build_number : 0);
+    if(management_controller->Initialize() != 0)
+        LOG_ERR("Failed to initialize the management controller.");
 
     auto isr_sensor_reader_factory = std::make_shared<IsrSensorReaderFactory>(
         time_service,
@@ -311,7 +341,7 @@ void SetupSystemConfiguration(std::shared_ptr<SystemConfigurationManager> system
 
 void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus_configuration_manager) {
     auto canbus_configuration = make_shared_pmr<CanbusConfiguration>(Mrm::GetExtPmr());
-    canbus_configuration->com_bus_channel = 0;
+    canbus_configuration->com_configuration.bus_channel = 0;
 
     // ============================================
     // CANBus 0
