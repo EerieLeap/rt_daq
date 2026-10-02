@@ -28,6 +28,7 @@ function(apply_patches patch_dir target_dir)
 endfunction()
 
 apply_patches("patches/zephyr" $ENV{ZEPHYR_BASE})
+apply_patches("patches/modules/hal_espressif" $ENV{ZEPHYR_BASE}/../modules/hal/espressif)
 
 # ZCBOR code generation function
 function(generate_zcbor_configuration cddl_path base_name)
