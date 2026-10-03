@@ -27,8 +27,10 @@ function(apply_patches patch_dir target_dir)
     endforeach()
 endfunction()
 
+apply_patches("../modules/eerie_leap_rt_core/patches/zephyr" $ENV{ZEPHYR_BASE})
+apply_patches("../modules/eerie_leap_rt_core/patches/modules/hal_espressif" $ENV{ZEPHYR_BASE}/../modules/hal/espressif)
+
 apply_patches("patches/zephyr" $ENV{ZEPHYR_BASE})
-apply_patches("patches/modules/hal_espressif" $ENV{ZEPHYR_BASE}/../modules/hal/espressif)
 
 # ZCBOR code generation function
 function(generate_zcbor_configuration cddl_path base_name)
