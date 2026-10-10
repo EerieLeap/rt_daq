@@ -6,7 +6,6 @@
 
 #include "utilities/memory/memory_resource_manager.h"
 #include "utilities/dev_tools/system_info.h"
-#include "utilities/guid/guid_generator.h"
 
 #include "subsys/device_tree/dt_configurator.h"
 #include "subsys/device_tree/dt_adc.h"
@@ -43,12 +42,10 @@
 #include "controllers/display_controller.h"
 
 // Test sensors includes
-#include "subsys/math_parser/expression_evaluator.h"
 #include "domain/sensor_domain/models/sensor.h"
 
 #include "utilities/voltage_interpolator/calibration_data.h"
-#include "utilities/voltage_interpolator/linear_voltage_interpolator.hpp"
-#include "utilities/voltage_interpolator/cubic_spline_voltage_interpolator.hpp"
+#include "utilities/voltage_interpolator/interpolation_method.h"
 
 using namespace eerie_leap::utilities::voltage_interpolator;
 using namespace eerie_leap::domain::sensor_domain::configuration;
@@ -58,9 +55,7 @@ using namespace eerie_leap::domain::sensor_domain::models;
 using namespace eerie_memory;
 using namespace eerie_leap::utilities::memory;
 using namespace eerie_leap::utilities::dev_tools;
-using namespace eerie_leap::utilities::guid;
 
-using namespace eerie_leap::subsys::math_parser;
 using namespace eerie_leap::subsys::device_tree;
 using namespace eerie_leap::subsys::fs::services;
 using namespace eerie_leap::subsys::gpio;
@@ -159,8 +154,6 @@ int main(void) {
     auto time_service = std::make_shared<TimeService>(rtc_provider, boot_elapsed_time_provider);
     time_service->Initialize();
 
-    auto guid_generator = std::make_shared<GuidGenerator>();
-
     int config_work_queue_stack_size = 6144;
     int config_work_queue_priority = 5;
     auto config_work_queue_thread = std::make_shared<WorkQueueThread>(
@@ -222,7 +215,6 @@ int main(void) {
         config_work_queue_thread,
         configuration_service,
         time_service,
-        guid_generator,
         sensor_readings_frame,
         canbus_controller->GetService(),
         gpio,
@@ -268,7 +260,6 @@ int main(void) {
 
     auto calibration_service = std::make_shared<CalibrationService>(
         time_service,
-        guid_generator,
         adc_configuration_manager,
         sensors_controller->GetProcessingService());
     calibration_service->Initialize();
@@ -466,12 +457,6 @@ void SetupAdcConfiguration(std::shared_ptr<AdcConfigurationManager> adc_configur
 void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager) {
     // Test Sensors
 
-    std::pmr::vector<CalibrationData> calibration_data_1 {
-        {0.0, 0.0},
-        {5.0, 100.0}
-    };
-    auto calibration_data_1_ptr = std::make_shared<std::pmr::vector<CalibrationData>>(calibration_data_1);
-
     auto sensor_1 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_1");
 
     sensor_1->metadata.name = "Sensor 1";
@@ -482,14 +467,9 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_1->configuration.channel = 0;
     // sensor_1->configuration.script_path = "scripts/sensor_1.lua";
     sensor_1->configuration.sampling_rate_ms = 50;
-    sensor_1->configuration.voltage_interpolator = make_unique_pmr<LinearVoltageInterpolator>(Mrm::GetExtPmr(), calibration_data_1_ptr);
-    // sensor_1->configuration.expression_evaluator = make_unique_pmr<ExpressionEvaluator>(Mrm::GetExtPmr(), "x * 2 + sensor_2 + 1");
-
-    std::pmr::vector<CalibrationData> calibration_data_2 {
-        {0.0, 90.0},
-        {5.0, 100.0},
-    };
-    auto calibration_data_2_ptr = std::make_shared<std::pmr::vector<CalibrationData>>(calibration_data_2);
+    sensor_1->configuration.interpolation_method = InterpolationMethod::LINEAR;
+    sensor_1->configuration.calibration_table = { {0.0, 0.0}, {5.0, 100.0} };
+    // sensor_1->configuration.expression = "x * 2 + sensor_2 + 1";
 
     auto sensor_2 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_2");
 
@@ -500,8 +480,9 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_2->configuration.type = SensorType::PHYSICAL_ANALOG;
     sensor_2->configuration.channel = 1;
     sensor_2->configuration.sampling_rate_ms = 1000;
-    sensor_2->configuration.voltage_interpolator = make_unique_pmr<CubicSplineVoltageInterpolator>(Mrm::GetExtPmr(), calibration_data_2_ptr);
-    sensor_2->configuration.expression_evaluator = make_unique_pmr<ExpressionEvaluator>(Mrm::GetExtPmr(), "x * 4 + 1.6");
+    sensor_2->configuration.interpolation_method = InterpolationMethod::CUBIC_SPLINE;
+    sensor_2->configuration.calibration_table = { {0.0, 90.0}, {5.0, 100.0} };
+    sensor_2->configuration.expression = "x * 4 + 1.6";
 
     auto sensor_3 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_3");
 
@@ -511,7 +492,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
 
     sensor_3->configuration.type = SensorType::VIRTUAL_ANALOG;
     sensor_3->configuration.sampling_rate_ms = 2000;
-    sensor_3->configuration.expression_evaluator = make_unique_pmr<ExpressionEvaluator>(Mrm::GetExtPmr(), "2 + 8.34");
+    sensor_3->configuration.expression = "2 + 8.34";
 
     auto sensor_4 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_4");
 
@@ -531,7 +512,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
 
     sensor_5->configuration.type = SensorType::VIRTUAL_INDICATOR;
     sensor_5->configuration.sampling_rate_ms = 1000;
-    sensor_5->configuration.expression_evaluator = make_unique_pmr<ExpressionEvaluator>(Mrm::GetExtPmr(), "sensor_1 < 400");
+    sensor_5->configuration.expression = "sensor_1 < 400";
 
     auto sensor_6 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_6");
 
@@ -540,7 +521,6 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_6->metadata.description = "Test Sensor 6";
 
     sensor_6->configuration.type = SensorType::CANBUS_ANALOG;
-    sensor_6->configuration.sampling_rate_ms = 1000;
     sensor_6->configuration.canbus_source = make_unique_pmr<CanbusSource>(Mrm::GetExtPmr(), 1, 790, "RPM");
 
     auto sensor_7 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_7");
@@ -550,7 +530,6 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_7->metadata.description = "Test Sensor 7";
 
     sensor_7->configuration.type = SensorType::CANBUS_RAW;
-    sensor_7->configuration.sampling_rate_ms = 300;
     sensor_7->configuration.canbus_source = make_unique_pmr<CanbusSource>(Mrm::GetExtPmr(), 0, 790);
 
     auto sensor_8 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_8");
@@ -562,7 +541,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_8->configuration.type = SensorType::USER_ANALOG;
     sensor_8->configuration.script_path = "scripts/sensor_8.lua";
     sensor_8->configuration.sampling_rate_ms = 500;
-    sensor_8->configuration.expression_evaluator = make_unique_pmr<ExpressionEvaluator>(Mrm::GetExtPmr(), "x * 2");
+    sensor_8->configuration.expression = "x * 2";
 
     std::vector<std::shared_ptr<Sensor>> sensors = {
         sensor_1,
@@ -578,12 +557,6 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     // std::vector<std::shared_ptr<Sensor>> sensors;
 
     // for(int i = 0; i < 50; i++) {
-    //     std::pmr::vector<CalibrationData> calibration_data_1 {
-    //         {0.0, 0.0},
-    //         {5.0, 100.0}
-    //     };
-    //     auto calibration_data_1_ptr = make_shared_pmr<std::pmr::vector<CalibrationData>>(Mrm::GetExtPmr(), calibration_data_1);
-
     //     auto sensor = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_" + std::to_string(i));
 
     //     sensor->metadata.name = "Sensor " + std::to_string(i);
@@ -594,8 +567,9 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     //     sensor->configuration.channel = 0;
     //     // sensor->configuration.script_path = "scripts/sensor_1.lua";
     //     sensor->configuration.sampling_rate_ms = 50;
-    //     sensor->configuration.voltage_interpolator = make_unique_pmr<LinearVoltageInterpolator>(Mrm::GetExtPmr(), calibration_data_1_ptr);
-    //     // sensor->configuration.expression_evaluator = make_unique_pmr<ExpressionEvaluator>(Mrm::GetExtPmr(), "x * 2 + 1");
+    //     sensor->configuration.interpolation_method = InterpolationMethod::LINEAR;
+    //     sensor->configuration.calibration_table = { {0.0, 0.0}, {5.0, 100.0} };
+    //     // sensor->configuration.expression = "x * 2 + 1";
 
     //     sensors.push_back(sensor);
     // }

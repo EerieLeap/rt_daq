@@ -92,9 +92,11 @@ endfunction()
 # generate_zcbor_configuration("sensors_config.cddl" "cbor_sensors_config")
 # generate_zcbor_configuration("system_config.cddl" "cbor_system_config")
 
-# Add Zephyr modules
+# Add Zephyr modules. rt_core carries its own dependencies as submodules; Zephyr does not
+# discover nested modules, so they are listed here.
 set(EXTRA_ZEPHYR_MODULES
-    "${CMAKE_CURRENT_SOURCE_DIR}/../modules/eerie_leap_lua"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../modules/eerie_leap_rt_core/modules/zephyr_lua"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../modules/eerie_leap_rt_core/modules/expression_engine"
     "${CMAKE_CURRENT_SOURCE_DIR}/../modules/eerie_leap_rt_core")
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
