@@ -8,7 +8,6 @@
 #include "utilities/dev_tools/system_info.h"
 
 #include "subsys/device_tree/dt_configurator.h"
-#include "subsys/device_tree/dt_adc.h"
 #include "subsys/device_tree/dt_gpio.h"
 #include "subsys/device_tree/dt_fs.h"
 #include "subsys/device_tree/dt_display.h"
@@ -26,15 +25,14 @@
 
 #include "domain/configuration_domain/services/configuration_service.h"
 #include "domain/system_domain/configuration/system_configuration_manager.h"
-#include "domain/sensor_domain/configuration/adc_configuration_manager.h"
 #include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
 #include "domain/sensor_domain/utilities/sensor_readings_frame.hpp"
 #include "domain/logging_domain/configuration/logging_configuration_manager.h"
 #include "domain/canbus_domain/configuration/canbus_configuration_manager.h"
-#include "domain/sensor_domain/services/calibration_service.h"
 #include "domain/canbus_domain/services/canbus_scheduler_service.h"
 
 #include "controllers/system_controller.h"
+#include "controllers/adc_controller.h"
 #include "controllers/canbus_controller.h"
 #include "controllers/sensors_controller.h"
 #include "controllers/logging_controller.h"
@@ -63,8 +61,6 @@ using namespace eerie_leap::subsys::cfb;
 using namespace eerie_leap::subsys::threading;
 using namespace eerie_leap::subsys::time;
 using namespace eerie_leap::subsys::canbus;
-using namespace eerie_leap::subsys::adc;
-using namespace eerie_leap::subsys::adc::utilities;
 
 using namespace eerie_leap::configuration::services;
 
@@ -88,7 +84,6 @@ LOG_MODULE_REGISTER(main_logger);
 constexpr uint32_t SLEEP_TIME_MS = 10000;
 
 void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus_configuration_manager);
-void SetupAdcConfiguration(std::shared_ptr<AdcConfigurationManager> adc_configuration_manager);
 void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager);
 void SetupLoggingConfiguration(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager,
     std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager);
@@ -124,9 +119,8 @@ int main(void) {
     }
 
     auto display_controller = std::make_shared<DisplayController>(cfb);
-    // NOTE: Affects performance, in particular occasionally adds around 5ms delay
-    // to the sensor processing time. As it's running on a thread with same priority
-    // as the CAN and sensor processing threads.
+    // NOTE: The display runs at priority 6, below sensor processing (5 in prj.conf).
+    // At equal priority it delayed processing wakes by up to ~5ms (ADC plan, sections 2.7, 6.7).
     display_controller->Initialize();
 
     std::shared_ptr<SdmmcService> sd_fs_service = nullptr;
@@ -174,22 +168,15 @@ int main(void) {
     configuration_service->RegisterCborConfigurationManager(
         ConfigurationService::Type::System, system_controller->GetConfigurationManager());
 
-    AdcFactory adc_factory(DtAdc::Get);
-    auto adc_manager = adc_factory.Create();
-    if(!adc_manager->Initialize()) {
-        LOG_ERR("Failed to initialize ADC.");
+    auto adc_controller = std::make_shared<AdcController>(
+        fs_service,
+        config_work_queue_thread,
+        configuration_service,
+        time_service);
+    if(adc_controller->Initialize() != 0) {
+        LOG_ERR("Failed to initialize the ADC controller.");
         return -1;
     }
-
-    auto cbor_adc_config_service = std::make_unique<CborConfigurationService<CborAdcConfig>>(
-        "adc_config", fs_service, config_work_queue_thread);
-    auto adc_configuration_manager = std::make_shared<AdcConfigurationManager>(
-        std::move(cbor_adc_config_service), adc_manager);
-    configuration_service->RegisterCborConfigurationManager(
-        ConfigurationService::Type::Adc, adc_configuration_manager);
-
-    // TODO: For test purposes only
-    // SetupAdcConfiguration(adc_configuration_manager);
 
     std::shared_ptr<IGpio> gpio = GpioFactory(DtGpio::Get).Create();
     if(gpio->Initialize() != 0) {
@@ -218,13 +205,15 @@ int main(void) {
         sensor_readings_frame,
         canbus_controller->GetService(),
         gpio,
-        adc_configuration_manager,
+        adc_controller->GetManager(),
+        adc_controller->GetConfigurationManager(),
         sd_fs_service);
     // TODO: For test purposes only
     // if(sensors_controller->Initialize(SetupTestSensors) != 0)
     if(sensors_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the sensors controller.");
 
+    adc_controller->RegisterPausedService(sensors_controller->GetProcessingService());
     canbus_controller->RegisterDependentService(sensors_controller->GetProcessingService());
 
     const auto canbus_com_service = canbus_controller->GetComService();
@@ -258,12 +247,6 @@ int main(void) {
     if(management_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the management controller.");
 
-    auto calibration_service = std::make_shared<CalibrationService>(
-        time_service,
-        adc_configuration_manager,
-        sensors_controller->GetProcessingService());
-    calibration_service->Initialize();
-
     auto canbus_scheduler_service = std::make_shared<CanbusSchedulerService>(
         canbus_controller->GetConfigurationManager(),
         canbus_controller->GetService(),
@@ -273,10 +256,6 @@ int main(void) {
 
     sensors_controller->Start();
     canbus_scheduler_service->Start();
-
-    // calibration_service->Start(1);
-    // k_msleep(10000);
-    // calibration_service->Stop();
 
     while(true) {
         // SystemInfo::PrintHeapInfo();
@@ -420,38 +399,6 @@ void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus
         std::move(canbus_channel_configuration_1));
 
     canbus_configuration_manager->Update(*canbus_configuration);
-}
-
-void SetupAdcConfiguration(std::shared_ptr<AdcConfigurationManager> adc_configuration_manager) {
-    std::pmr::vector<CalibrationData> adc_calibration_data_samples {
-        {0.501, 0.469},
-        {1.0, 0.968},
-        {2.0, 1.970},
-        {3.002, 2.98},
-        {4.003, 4.01},
-        {5.0, 5.0}
-    };
-
-    auto adc_calibration_data_samples_ptr = std::make_shared<std::pmr::vector<CalibrationData>>(adc_calibration_data_samples);
-    auto adc_calibrator = std::make_shared<AdcCalibrator>(InterpolationMethod::LINEAR, adc_calibration_data_samples_ptr);
-
-    std::vector<std::shared_ptr<AdcChannelConfiguration>> channel_configurations = {
-        std::make_shared<AdcChannelConfiguration>(adc_calibrator),
-        std::make_shared<AdcChannelConfiguration>(adc_calibrator),
-        std::make_shared<AdcChannelConfiguration>(adc_calibrator),
-        std::make_shared<AdcChannelConfiguration>(adc_calibrator),
-        // std::make_shared<AdcChannelConfiguration>(adc_calibrator),
-        // std::make_shared<AdcChannelConfiguration>(adc_calibrator),
-        // std::make_shared<AdcChannelConfiguration>(adc_calibrator),
-        // std::make_shared<AdcChannelConfiguration>(adc_calibrator),
-    };
-
-    auto adc_configuration = std::make_shared<AdcConfiguration>();
-    adc_configuration->samples = 40;
-    adc_configuration->channel_configurations =
-        std::make_shared<std::vector<std::shared_ptr<AdcChannelConfiguration>>>(channel_configurations);
-
-    adc_configuration_manager->Update(*adc_configuration.get());
 }
 
 void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager) {

@@ -24,6 +24,7 @@ __pycache__/
 
 # docs
 /doc/_build*
+/dev_docs
 
 # docker
 /docker-compose.yml
