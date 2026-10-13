@@ -4,3 +4,34 @@ endmenu
 
 module = APP
 module-str = APP
+
+menu "Development aids"
+
+config APP_LOGGING_AUTOSTART_DELAY_MS
+    int "Start logging automatically after this delay (0 = disabled)"
+    default 0
+    help
+      Starts the log writer this many milliseconds after boot without a CDMP
+      LOGGING command. Bench use only; leave at 0 in a shipped build.
+
+config APP_SETUP_LOGGING_CONFIGURATION
+    bool "Persist the test logging configuration at boot"
+    help
+      Runs SetupLoggingConfiguration() once at boot, which stores a logging
+      configuration enabling four of the test sensors. The configuration stays
+      on the unit until it is replaced.
+
+config APP_LOGGING_SHELL
+    bool "Shell commands to start, stop and inspect the log writer"
+    depends on SHELL
+    help
+      Adds 'logging start', 'logging stop' and 'logging status' to the Zephyr
+      shell, standing in for the CDMP LOGGING command on a bench without a
+      CAN peer. 'logging start' writes the MDF header on the shell thread, so
+      use a SHELL_STACK_SIZE of 4096 or more. 'logging config <interval_ms>
+      <max_log_size_mb>' stores those two fields of the logging configuration
+      and prints the previous values; 'logging reapply-sensors' applies the
+      stored sensors configuration again. Both run on the configuration work
+      queue, as an SMP apply does, and both restart a running writer.
+
+endmenu

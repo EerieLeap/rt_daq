@@ -36,6 +36,9 @@
 #include "controllers/canbus_controller.h"
 #include "controllers/sensors_controller.h"
 #include "controllers/logging_controller.h"
+#ifdef CONFIG_APP_LOGGING_SHELL
+#include "shell/logging_shell_bridge.h"
+#endif
 #include "controllers/management_controller.h"
 #include "controllers/display_controller.h"
 
@@ -148,7 +151,10 @@ int main(void) {
     auto time_service = std::make_shared<TimeService>(rtc_provider, boot_elapsed_time_provider);
     time_service->Initialize();
 
-    int config_work_queue_stack_size = 6144;
+    // Configuration applies restart sensor processing and the log writer here, which builds the
+    // logger and writes the MDF header through FatFs: 5728 of 6144 bytes measured on the PM board
+    // (logging plan section 6.5), too close to keep.
+    int config_work_queue_stack_size = 8192;
     int config_work_queue_priority = 5;
     auto config_work_queue_thread = std::make_shared<WorkQueueThread>(
         "config_work_queue",
@@ -233,8 +239,21 @@ int main(void) {
         if(logging_controller->Initialize() != 0)
             LOG_ERR("Failed to initialize the logging controller.");
 
+        // Stopped before a sensors restart drops the generation the writer reads, started again
+        // on the new one, so a sensors apply while logging finalizes the file and opens the next.
+        sensors_controller->RegisterDependentService(logging_controller->GetDependentService());
+
+#ifdef CONFIG_APP_LOGGING_SHELL
+        eerie_leap::shell::AttachLoggingShell(
+            logging_controller,
+            sensors_controller->GetConfigurationManager(),
+            config_work_queue_thread);
+#endif
+
         // TODO: For test purposes only
-        // SetupLoggingConfiguration(sensors_controller->GetConfigurationManager(), logging_controller->GetConfigurationManager());
+#ifdef CONFIG_APP_SETUP_LOGGING_CONFIGURATION
+        SetupLoggingConfiguration(sensors_controller->GetConfigurationManager(), logging_controller->GetConfigurationManager());
+#endif
     }
 
     // Constructed after every controller that registers a configuration manager.
@@ -256,6 +275,19 @@ int main(void) {
 
     sensors_controller->Start();
     canbus_scheduler_service->Start();
+
+#if CONFIG_APP_LOGGING_AUTOSTART_DELAY_MS > 0
+    // Bench aid: stands in for the CDMP LOGGING command when no CAN peer is connected.
+    if(logging_controller != nullptr) {
+        k_msleep(CONFIG_APP_LOGGING_AUTOSTART_DELAY_MS);
+        try {
+            if(!logging_controller->LogWriterStart())
+                LOG_ERR("Failed to start logging automatically.");
+        } catch(const std::exception& e) {
+            LOG_ERR("Failed to start logging automatically: %s", e.what());
+        }
+    }
+#endif
 
     while(true) {
         // SystemInfo::PrintHeapInfo();

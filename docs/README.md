@@ -15,8 +15,8 @@ they are configured is documented in rt_core:
 Elsewhere in the repository:
 
 - [`renode/README.md`](../renode/README.md): running the Nucleo H753ZI build under Renode.
-- [`scripts/logs_parser/`](../scripts/logs_parser/README.md): a Python parser for the simple
-  logger's files.
+- [`scripts/mdf_check/`](../scripts/mdf_check/README.md): asammdf checks of the MDF log files
+  (summary, invalid samples, robustness of cut files).
 - `hardware/`: schematic and bill of materials of the PM board.
 - [Wiki](https://github.com/Pavllick/EerieLeapRT/wiki): configuration details and usage examples
   for end users.

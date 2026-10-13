@@ -12,7 +12,8 @@ build configuration.
 | Path | Contents |
 | --- | --- |
 | `app/src/main.cpp` | Creates and starts the rt_core controllers in order (see below). |
-| `app/src/controllers/logging_controller.*` | Starts and stops logging on a CDMP command; shows a `log` status on the display. |
+| `app/src/controllers/logging_controller.*` | Starts and stops logging on a CDMP command, restarts it for a new configuration, stops a failed session; shows a `log` status on the display. |
+| `app/src/shell/` | The `logging` bench commands (`APP_LOGGING_SHELL`, see the logging controller below). |
 | `app/src/controllers/display_controller.*`, `app/src/views/animations/` | Idle animations and a status bar on the character framebuffer. |
 | `app/prj.conf` | Product identity, which rt_core systems are built, heap, stacks, filesystems, CAN FD. |
 | `app/boards/<board>.conf`, `.overlay` | Per-board options and device tree; see [boards.md](boards.md). |
@@ -32,26 +33,69 @@ are this application's choices:
    controller's work queue runs at priority 6, below sensor processing.
 3. The SD service is created when the board has a card slot. Its presence monitor is not started:
    on the SPI card interface the status polling interrupts logging.
-4. The configuration work queue is 6144 bytes at priority 5.
+4. The configuration work queue is 8192 bytes at priority 5: configuration applies restart sensor
+   processing and the log writer there, which writes the MDF header (5728 bytes measured at 6144).
 5. System, ADC, GPIO, CAN, sensors, logging (only with an SD card), management, CAN scheduler.
    The sensor processing service is registered with the ADC controller (paused during
    calibration) and with the CAN controller (restarted on CAN reconfiguration), as is the CAN
-   scheduler.
+   scheduler. The log writer is registered with the sensors controller (stopped and started
+   again around a sensors or ADC restart).
 6. Sensor processing and the CAN scheduler are started last; `main` then sleeps.
 
-`main.cpp` also carries three commented-out helpers, `SetupCanbusConfiguration`,
-`SetupTestSensors` and `SetupLoggingConfiguration`, that write a test configuration through the
-managers. Passing one of them to a controller's `Initialize()` persists that configuration on the
-unit, so restore the previous configuration afterwards.
+`main.cpp` also carries three helpers, `SetupCanbusConfiguration`, `SetupTestSensors` and
+`SetupLoggingConfiguration`, that write a test configuration through the managers. The first two
+are commented out at their controller's `Initialize()` call, the third runs under
+`APP_SETUP_LOGGING_CONFIGURATION` (see the logging controller below). Each persists its
+configuration on the unit, so restore the previous configuration afterwards.
 
 ## Logging controller
 
-Creates the logging configuration manager (type 5 in the SMP `config` group), the
-`LogWriterService` and an MDF4 logger built from the current sensors configuration, then
-registers a handler for the CDMP `LOGGING` command (0x20, one byte: 0x01 start, 0x00 stop). A
-broadcast of that command starts or stops logging on every unit on the bus. While logging runs
-the display shows `log` in its status bar. The logger is built once at initialization; a changed
-sensors configuration needs a restart to be reflected in new log files.
+Creates the logging configuration manager (type 5 in the SMP `config` group) and the
+`LogWriterService`, then registers a handler for the CDMP `LOGGING` command (0x20, one byte:
+0x01 start, 0x00 stop). A broadcast of that command starts or stops logging on every unit on the
+bus.
+
+The writer's logger factory is the controller's: every start, including the ones rt_core makes
+on its own, builds a new MDF4 logger from the current sensors and logging configurations and the
+metadata this application supplies for the file header: device name `CONFIG_BOARD`, tool
+`rt_daq` at the software version from `prj.conf` (`EERIE_LEAP_SW_VERSION_*`, the same one the
+packed `sw_version` property carries; `app/VERSION` is not used), `EERIE_LEAP_PRODUCT_ID`, the
+CDMP device ID (0 until the unit has claimed one), the packed hardware and software versions,
+and the CRC of the stored sensors configuration as `sensors_configuration_hash` (0 when that
+configuration was rejected at boot and defaults run instead). What the logger writes from them is
+in rt_core's [logging.md](../modules/eerie_leap_rt_core/docs/logging.md).
+
+A configuration stored while logging runs takes effect at once. `main()` registers the writer
+with the sensors controller, so a sensors or ADC apply stops it before processing restarts and
+starts it again on the new sensors: one file ends, the next begins. What is registered is the
+controller's wrapper of the writer (`GetDependentService()`), which takes the controller's lock
+and starts the writer again only when logging is still wanted: a stop from the CDMP command or
+the shell during the restart, or a failed session, is not undone. A logging configuration
+(interval, size limit, sensor selection) restarts a running writer from the manager's updated
+handler, on the configuration work queue. Starts, stops and these restarts, from the CDMP
+command, the shell, the autostart hook or the work queue, run one at a time.
+
+The controller creates rt_core's `LoggingEventBus` and follows the writer's `StatusUpdated`
+events on the configuration work queue. The display shows `log` while the last event said active,
+so it follows starts, stops, restarts and failures alike. A session that failed (write failed, no
+space at a rotation, rotation failed) is stopped there, off the writer thread, which finalizes
+what the card still takes and closes the file; the next start, from any source, begins a new
+file.
+
+Development aids (`app/Kconfig`, all off by default, bench use only):
+`APP_LOGGING_AUTOSTART_DELAY_MS` starts logging that many milliseconds after boot without a CDMP
+command; `APP_SETUP_LOGGING_CONFIGURATION` persists the test logging configuration
+(`SetupLoggingConfiguration`) at boot; `APP_LOGGING_SHELL` adds the `logging` commands to the
+Zephyr shell:
+
+| Command | Effect |
+| --- | --- |
+| `logging start`, `logging stop` | What the CDMP command does. `start` writes the MDF header on the shell thread, so use a `SHELL_STACK_SIZE` of 4096 or more. |
+| `logging status` | Running and failed flags and the writer's counters. |
+| `logging config <interval_ms> <max_log_size_mb>` | Stores those two fields of the logging configuration, keeping its sensor entries, and prints the previous values to restore them with; a running writer restarts with it. |
+| `logging reapply-sensors` | Applies the stored sensors configuration again: its stored CBOR (`GetCborConfiguration()`) through `ApplyCborConfiguration()`, the path an SMP apply takes, so the restart of processing and of a running writer can be exercised without an SMP client. |
+
+The last two run on the configuration work queue, as an SMP apply does.
 
 ## Display controller
 
@@ -70,9 +114,8 @@ the animation resumes. `PrintStringLine()` clears the screen and prints one line
 | Memory | 64 KiB kernel heap, libc malloc, dynamic thread stacks | Configuration objects and Lua states live on the external heap where the board has one. |
 | Filesystems | littlefs on internal flash; FAT on the SD card is enabled per board | `config/` on littlefs, logs and scripts on the card. |
 | CAN | `CAN_FD_MODE` | The PM board's MCP2518FD channel runs CAN FD. |
-| Threads | SD monitor 3072, log writer 3072, sensor processing priority 5 | Priority 5 puts sampling above the display, CAN scheduler and calibration threads; on the PM board this cut the 50 ms group's period jitter from milliseconds to tens of microseconds. |
+| Threads | SD monitor 3072, log writer 6144, sensor processing priority 5 | Priority 5 puts sampling above the display, CAN scheduler and calibration threads; on the PM board this cut the 50 ms group's period jitter from milliseconds to tens of microseconds. The log writer peaks at 3648 bytes during a file rotation (about 1950 otherwise) on the PM board. |
 | rt_core systems | Every subsystem, the ADC, CAN, CAN COM (device type `LOGGER`), script, sensor, system and logging domains, and the system, management, ADC, CAN and sensors controllers | Bluetooth is not enabled in this application. |
-| Log files | `LOG_METADATA_FILE_VERSION=1`, `LOG_DATA_FILE_VERSION=1` | Version fields of the simple logger's files. |
 
 ## Patches
 
