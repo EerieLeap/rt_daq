@@ -262,7 +262,9 @@ int main(void) {
         configuration_service,
         config_work_queue_thread,
         canbus_com_service != nullptr ? canbus_com_service->GetNetworkInfo() : nullptr,
-        system_configuration != nullptr ? system_configuration->build_number : 0);
+        system_configuration != nullptr ? system_configuration->build_number : 0,
+        sensors_controller->GetCapabilities(),
+        sd_fs_service);
     if(management_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the management controller.");
 
