@@ -21,7 +21,9 @@
 #include "domain/logging_domain/services/log_writer_service.h"
 #include "domain/logging_domain/loggers/logger_metadata.h"
 #include "domain/logging_domain/loggers/mdf4_logger_sensor_reading.h"
+#include "domain/logging_domain/event_bus/logging_network_state.h"
 #include "domain/canbus_com_domain/services/canbus_com_service.h"
+#include "domain/canbus_com_domain/state_bridge/network_state_exporter.h"
 #include "controllers/display_controller.h"
 
 namespace eerie_leap::controllers {
@@ -40,11 +42,15 @@ using eerie_leap::domain::logging_domain::configuration::LoggingConfigurationMan
 using eerie_leap::domain::logging_domain::services::LogWriterService;
 using eerie_leap::domain::logging_domain::loggers::LoggerMetadata;
 using eerie_leap::domain::logging_domain::loggers::Mdf4LoggerSensorReading;
+using eerie_leap::domain::logging_domain::event_bus::LoggingNetworkState;
 using eerie_leap::domain::canbus_com_domain::services::CanbusComService;
+using eerie_leap::domain::canbus_com_domain::state_bridge::NetworkStateExporter;
 
 class LoggingController {
 private:
     static constexpr const char* LOGGING_CONFIGURATION_NAME = "logging_config";
+
+    using LoggingStatusExporter = NetworkStateExporter<LoggingNetworkState>;
 
     std::shared_ptr<IFsService> fs_service_;
     std::shared_ptr<WorkQueueThread> config_work_queue_thread_;
@@ -81,6 +87,10 @@ private:
     std::atomic<uint32_t> last_inactive_reason_ = 0;
     // Configuration work queue only.
     bool is_log_status_shown_ = false;
+
+    // Shares the writer's status with the other units on the CDMP network; none without the COM
+    // service. Its destruction withdraws the status.
+    std::unique_ptr<LoggingStatusExporter> logging_status_exporter_;
 
     // The log writer's factory, run at every start, so a file always describes the configurations
     // and the CDMP device ID in effect when it was opened.

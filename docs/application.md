@@ -12,7 +12,7 @@ build configuration.
 | Path | Contents |
 | --- | --- |
 | `app/src/main.cpp` | Creates and starts the rt_core controllers in order (see below). |
-| `app/src/controllers/logging_controller.*` | Starts and stops logging on a CDMP command, restarts it for a new configuration, stops a failed session; shows a `log` status on the display. |
+| `app/src/controllers/logging_controller.*` | Starts and stops logging on a CDMP command, restarts it for a new configuration, stops a failed session, shares its status with other units; shows a `log` status on the display. |
 | `app/src/shell/` | The `logging` bench commands (`APP_LOGGING_SHELL`, see the logging controller below). |
 | `app/src/controllers/display_controller.*`, `app/src/views/animations/` | Idle animations and a status bar on the character framebuffer. |
 | `app/prj.conf` | Product identity, which rt_core systems are built, heap, stacks, filesystems, CAN FD. |
@@ -81,6 +81,14 @@ so it follows starts, stops, restarts and failures alike. A session that failed 
 space at a rotation, rotation failed) is stopped there, off the writer thread, which finalizes
 what the card still takes and closes the file; the next start, from any source, begins a new
 file.
+
+The same events go to the other units on the CDMP network, where the gauge shows them: the
+controller owns rt_core's `NetworkStateExporter<LoggingNetworkState>`, created on the COM service
+once the bus carries `logging_events` and before the `LOGGING` handler is registered. The shared
+status is inactive (`Stopped`) until the first event, keeps a failure's reason through the stop
+that follows it, and is withdrawn with the controller. Without the CAN COM service the unit
+neither takes the command nor shares its status. The record and how units combine it are in
+rt_core's [logging.md](../modules/eerie_leap_rt_core/docs/logging.md#status-on-other-units).
 
 Development aids (`app/Kconfig`, all off by default, bench use only):
 `APP_LOGGING_AUTOSTART_DELAY_MS` starts logging that many milliseconds after boot without a CDMP

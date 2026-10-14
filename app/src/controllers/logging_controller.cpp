@@ -42,6 +42,8 @@ static const char* GetReasonName(LoggingStatusReason reason) {
             return "no space";
         case LoggingStatusReason::RotationFailed:
             return "rotation failed";
+        case LoggingStatusReason::Unavailable:
+            return "unavailable";
     }
 
     return "unknown";
@@ -89,7 +91,10 @@ LoggingController::LoggingController(
 }
 
 LoggingController::~LoggingController() {
-    // The manager and the channel may outlive the handlers' captures.
+    // The COM service, the manager and the channel may outlive the handlers' captures.
+    if(canbus_com_service_ != nullptr)
+        canbus_com_service_->UnsetCommandHandler(CanbusComCommandCode::LOGGING);
+
     if(logging_configuration_manager_ != nullptr)
         logging_configuration_manager_->RegisterConfigurationUpdatedHandler(nullptr);
 
@@ -166,17 +171,29 @@ int LoggingController::Initialize() {
         restart_task_->Reschedule(K_NO_WAIT);
     });
 
-    canbus_com_service_->SetCommandHandler<CanbusComLoggingCommand>(
-        CanbusComCommandCode::LOGGING,
-        [this](std::optional<CanbusComLoggingCommand> command) {
-            if(!command.has_value())
-                return false;
+    // Without the CAN COM service the unit logs on its own: no CDMP command, no shared status.
+    if(canbus_com_service_ != nullptr) {
+        // Shares the writer's status with the other units, where a gauge shows it. The bus above
+        // carries logging_events by now, and the command handler comes after, so the exporter
+        // follows the writer from its first start.
+        try {
+            logging_status_exporter_ = std::make_unique<LoggingStatusExporter>(canbus_com_service_);
+        } catch(const std::exception& e) {
+            LOG_ERR("Failed to share the logging status: %s", e.what());
+        }
 
-            if(command.value().IsStart())
-                return LogWriterStart();
-            else
-                return LogWriterStop();
-        });
+        canbus_com_service_->SetCommandHandler<CanbusComLoggingCommand>(
+            CanbusComCommandCode::LOGGING,
+            [this](std::optional<CanbusComLoggingCommand> command) {
+                if(!command.has_value())
+                    return false;
+
+                if(command.value().IsStart())
+                    return LogWriterStart();
+                else
+                    return LogWriterStop();
+            });
+    }
 
     return 0;
 }
