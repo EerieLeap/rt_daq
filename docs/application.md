@@ -13,8 +13,9 @@ logging control, its display controller and its build configuration.
 | --- | --- |
 | `app/src/main.cpp` | Creates and starts the rt_core controllers in order (see below). |
 | `app/src/event_bus/` | The application bus and `InitializeEventChannels()`: `logging_events` and `sensor_events` on one bus thread, and the channel registry entries for `Sensors` and `Logging`. |
-| `app/src/shell/` | The `logging` bench commands (`APP_LOGGING_SHELL`, see [Logging](#logging)). |
+| `app/src/shell/` | The `logging` and `sensor` bench commands (`APP_LOGGING_SHELL`, `APP_SENSOR_SHELL`, see [Development aids](#development-aids)). |
 | `app/src/controllers/display_controller.*`, `app/src/views/animations/` | Idle animations and a status bar on the character framebuffer; it follows the logging status (see the display controller below). |
+| `app/bench.conf` | The bench build's Kconfig fragment: shell, SMP over the console, stack reports, bench commands (see [Development aids](#development-aids)). |
 | `app/prj.conf` | Product identity, which rt_core systems are built, heap, stacks, filesystems, CAN FD. |
 | `app/boards/<board>.conf`, `.overlay` | Per-board options and device tree; see [boards.md](boards.md). |
 | `app/patches/zephyr/` | Patches applied to the Zephyr checkout at configure time, in addition to rt_core's. |
@@ -131,7 +132,8 @@ configurations that agree:
    as the selector value.
 
 Both are written over SMP, in the `config` group (types 4 and 8), over CAN or through a unit that
-acts as access point. No development aid stores triggers.
+acts as access point. On a bench without a CAN adapter the gauge's `tools/smp_can_client.py` writes
+them from YAML descriptions over the console of a bench build (see [Development aids](#development-aids)).
 
 Behaviour:
 
@@ -184,6 +186,65 @@ shell:
 | `logging unmount-sd` | A bench fault: unmounts the card under the writer, as a pulled card does at the file system layer. It runs on the shell thread; reboot to mount the card again. |
 
 `logging config` and `logging reapply-sensors` run on the configuration work queue, as an SMP apply does.
+
+`APP_SENSOR_SHELL` adds the `sensor` commands, which stand in for a sensor's source so a bench can drive
+triggers and the CAN messages that carry a sensor without wiring an input:
+
+| Command | Effect |
+| --- | --- |
+| `sensor set <id> <value>` | Commits a processed reading with that value to the readings frame, as the sensor's source would. The sensor events publisher (triggers), the log writer and the CAN scheduler see it. An indicator stores 0 or 1. |
+| `sensor get <id>` | Prints the sensor's latest reading: value, status, error and age. |
+
+`sensor set` runs on the configuration work queue, behind any queued sensors apply, processing restart or
+CAN reconfiguration, so it never lands inside one. It refuses only while processing is stopped (before boot
+starts it, or after a failed start or restart) or paused (an ADC calibration), printing "Sensor processing
+is stopped or paused; set the value again once it runs." Every processing restart drops a value set before
+it. A restart follows a sensors or ADC configuration write, `logging reapply-sensors` and a CAN configuration
+write; the CAN one comes 250 ms after its answer (`EERIE_LEAP_CONTROLLER_CANBUS_RECONFIGURE_DELAY_MS`). Set
+the value again after it.
+
+The command bypasses the sensor's own expression and conditioning (`debounce_ms`, `Toggle`), and does not
+evaluate the sensors that depend on it when it commits. A virtual sensor that polls it reads the value at
+its next period. The sensor's own source replaces the value at its next reading, which a polled sensor
+delivers within its sampling period. No enabled sensor kind is without a source, so use one whose source
+never writes it: a `CANBUS_INDICATOR` on a signal no other unit sends. A unit does not hear its own frames,
+not even on native_sim, so a signal in a message this unit sends is written by nothing but the bench, and
+the value travels in that message to the other units. The CAN scheduler fills a sent signal with the value
+of the sensor whose id is the signal's name, so the sensor must be named after the signal.
+
+The bench units store the CAN configuration that `SetupCanbusConfiguration()` in `main.cpp` wrote (the call
+is commented out now). In it rt_daq sends the signals `sensor_0` to `sensor_2` on frames 0x64 to 0x66 every
+20 ms, and the gauge receives them. With that configuration, a sensor `sensor_0` of type `CANBUS_INDICATOR`
+with connection string `0/100/sensor_0` (bus 0, frame 100) is written by `sensor set` alone, and the
+gauge's remote path sees it. A unit with another CAN configuration needs such a message first: check with
+`config-get canbus` and add one with `config-set canbus`. A `VIRTUAL_INDICATOR` that reads such a sensor and
+has `debounce_ms` or `Toggle` set exercises the conditioning on the polled value. The option excludes
+Zephyr's `SENSOR_SHELL`, which registers a `sensor` command too.
+
+`app/bench.conf` is the Kconfig fragment for a bench build; it is not for a shipped build:
+
+```shell
+west build -d build_bench -b esp32s3_pm_hw_02/esp32s3/procpu app -- -DEXTRA_CONF_FILE=bench.conf
+```
+
+`EXTRA_CONF_FILE` stays in the CMake cache: build the bench image in a directory of its own, or leave it
+with `-p always`, so a later build of the same directory is not a bench build by accident.
+
+| Setting | Why |
+| --- | --- |
+| `SHELL`, `SHELL_STACK_SIZE=4096` | The Zephyr shell on the console, where the units' USB-Serial-JTAG appears as `/dev/ttyACM*`. The bench commands run C++ at -O0 on this thread. |
+| `MCUMGR_TRANSPORT_SHELL`, `BASE64`, `MCUMGR_TRANSPORT_SHELL_RX_BUF_COUNT=16`, `MCUMGR_TRANSPORT_SHELL_INPUT_TIMEOUT` | SMP over the console, which the gauge's `tools/smp_can_client.py --serial` speaks. A configuration request is up to 12 lines of 127 bytes that wait for the shell thread at the lowest priority; the default 2 buffers lose lines. The timeout frees the shell after a request cut off mid-frame. |
+| `SHELL_BACKEND_SERIAL_INTERRUPT_DRIVEN` | The shell's polling API never hands SMP frames to MCUmgr. It is the default on the S3; native_sim needs it set. |
+| `SHELL_LOG_BACKEND=n`, `LOG_BACKEND_UART=y`, `LOG_RUNTIME_FILTERING=n` | Logs keep the shipped path: `uart_poll_out` with no lock. The shell log backend would serialize every thread that logs on the shell's mutex, so the stack peaks and timings measured on the bench build would differ from a shipped one. The shell implies runtime filtering, which would cap every module at INF and drop debug logs. The client skips the log text between SMP lines. |
+| `SHELL_BACKEND_SERIAL_FORCE_TX_BLOCKING_MODE` | Shell output is polled too. Interrupt-driven transmit waits for a host to read the USB-Serial-JTAG FIFO and blocks the shell thread while no host has the port open. |
+| `THREAD_ANALYZER_AUTO`, `_AUTO_INTERVAL=10`, `_AUTO_STACK_SIZE=3072`, `_PRINT_THREAD_PRIORITY` | A report of every thread's stack peak every 10 s, through the log. `prj.conf` already enables the analyzer; it has no effect on native_sim. |
+| `STACK_SENTINEL` | The S3 has no stack guard; a sentinel stops the unit with the thread's name when a stack overflows. |
+| `APP_LOGGING_SHELL`, `APP_SENSOR_SHELL` | The bench commands above. |
+
+The fragment costs 14376 B of internal RAM (`dram0_0_seg`, 48.2 % to 51.8 %) and 83552 B of flash on the PM
+board. The libc heap is the internal RAM that the image leaves (`COMMON_LIBC_MALLOC_ARENA_SIZE=-1`), so it
+shrinks by about the same amount. The stack peaks of a bench build are those of the shipped logging path plus the shell thread; the
+shell and the analyzer thread add stacks and a little timing.
 
 ## Display controller
 

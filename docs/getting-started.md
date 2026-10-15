@@ -59,6 +59,7 @@ Board targets are listed in [boards.md](boards.md). Useful variants:
 | Separate build directories per board | `west build -d build_native -b native_sim ./app` |
 | ESP32 with the MCUboot bootloader | add `--sysbuild` |
 | A Kconfig option for one build | append `-- -DCONFIG_EERIE_LEAP_DOMAIN_SENSOR_PROCESSING_STATS=y`; such values stay in the CMake cache until the next `-p always` |
+| The bench build: shell, SMP over the console, stack reports, the `logging` and `sensor` commands | build in its own directory (`-d build_bench`) and append `-- -DEXTRA_CONF_FILE=bench.conf`, which stays in the CMake cache (see [application.md](application.md#development-aids)) |
 | ESP32 debugging with `west debug` | append `-- -DOPENOCD=<path>/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=<path>/openocd-esp32/share/openocd/scripts` (see the ESP32 tasks in `.vscode_example/tasks.json`) |
 
 The VS Code tasks `Build NativeSim`, `Build EL02` (the PM board), `Build STM32H7`, `Build H753ZI`,

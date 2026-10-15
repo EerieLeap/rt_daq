@@ -45,4 +45,23 @@ config APP_LOGGING_SHELL
       restart a running writer. 'logging unmount-sd' unmounts the card under
       the writer as a bench fault, on the shell thread; reboot to recover.
 
+config APP_SENSOR_SHELL
+    bool "Shell commands to set and read a sensor's value"
+    depends on SHELL && !SENSOR_SHELL
+    help
+      Adds 'sensor set <id> <value>' and 'sensor get <id>' to the Zephyr
+      shell, so a bench can drive triggers, and the CAN messages that carry
+      a sensor, without wiring an input. 'set' runs on the configuration
+      work queue, where a sensors apply and a processing restart run, and
+      commits a processed reading with that value to the readings frame
+      while processing runs: the sensor events publisher, the triggers, the
+      log writer and the CAN scheduler see it. It bypasses the sensor's own
+      expression and conditioning and does not evaluate the sensors that
+      depend on it; a virtual sensor that polls it reads the value at its
+      next period. The sensor's own source replaces it at its next reading.
+      A processing restart (a sensors, ADC or CAN configuration write) drops
+      it. Use a sensor no source writes, such as a CANBUS_INDICATOR on a
+      signal no other unit sends. Zephyr's SENSOR_SHELL registers a 'sensor'
+      command too, so the two exclude each other.
+
 endmenu

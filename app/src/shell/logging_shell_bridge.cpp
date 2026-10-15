@@ -17,6 +17,7 @@
 #include "domain/logging_domain/control/i_logging_control.h"
 #include "domain/logging_domain/models/logging_configuration.h"
 
+#include "configuration_job.h"
 #include "logging_shell_bridge.h"
 
 namespace eerie_leap::shell {
@@ -29,8 +30,6 @@ using eerie_leap::domain::logging_domain::control::ILoggingControl;
 using eerie_leap::domain::logging_domain::models::LoggingConfiguration;
 
 namespace {
-
-constexpr int32_t CONFIGURATION_JOB_TIMEOUT_S = 10;
 
 std::shared_ptr<LoggingController> logging_controller;
 std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager;
@@ -56,44 +55,6 @@ bool ParseUint32(const char* text, uint32_t& value) {
     value = static_cast<uint32_t>(parsed);
 
     return true;
-}
-
-struct JobResult {
-    k_sem done;
-    int code = -ETIMEDOUT;
-    std::string message;
-};
-
-// Runs @p job on the configuration work queue, where an SMP apply runs: the parsing and validation
-// get that queue's stack rather than the shell's, and the restart the stored configuration
-// triggers is queued behind the job, as it is behind an apply. The job reports through the result,
-// which the shell thread prints; it outlives a timeout.
-int RunConfigurationJob(const struct shell* sh, std::function<int(std::string&)> job) {
-    auto result = std::make_shared<JobResult>();
-    k_sem_init(&result->done, 0, 1);
-
-    config_work_queue_thread->Run([result, job = std::move(job)] {
-        try {
-            result->code = job(result->message);
-        } catch(const std::exception& e) {
-            result->code = -EIO;
-            result->message = e.what();
-        }
-
-        k_sem_give(&result->done);
-    });
-
-    if(k_sem_take(&result->done, K_SECONDS(CONFIGURATION_JOB_TIMEOUT_S)) != 0) {
-        shell_error(sh, "The configuration work queue did not run the job within %d s.", CONFIGURATION_JOB_TIMEOUT_S);
-        return -ETIMEDOUT;
-    }
-
-    if(result->code != 0)
-        shell_error(sh, "%s", result->message.c_str());
-    else
-        shell_print(sh, "%s", result->message.c_str());
-
-    return result->code;
 }
 
 } // namespace
@@ -176,7 +137,7 @@ extern "C" int app_logging_shell_config(const struct shell* sh, size_t argc, cha
 
     const auto manager = logging_controller->GetConfigurationManager();
 
-    return RunConfigurationJob(sh, [manager, interval_ms, max_log_size_mb](std::string& message) {
+    return RunConfigurationJob(sh, *config_work_queue_thread, [manager, interval_ms, max_log_size_mb](std::string& message) {
         const auto current = manager->Get();
         if(current == nullptr) {
             message = "No logging configuration is available.";
@@ -214,7 +175,7 @@ extern "C" int app_logging_shell_reapply_sensors(const struct shell* sh) {
 
     const auto manager = sensors_configuration_manager;
 
-    return RunConfigurationJob(sh, [manager](std::string& message) {
+    return RunConfigurationJob(sh, *config_work_queue_thread, [manager](std::string& message) {
         const auto cbor = manager->GetCborConfiguration();
         if(cbor.empty()) {
             message = "No stored sensors configuration.";

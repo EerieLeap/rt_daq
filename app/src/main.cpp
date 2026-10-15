@@ -40,6 +40,9 @@
 #ifdef CONFIG_APP_LOGGING_SHELL
 #include "shell/logging_shell_bridge.h"
 #endif
+#ifdef CONFIG_APP_SENSOR_SHELL
+#include "shell/sensor_shell_bridge.h"
+#endif
 #include "controllers/management_controller.h"
 #include "controllers/display_controller.h"
 
@@ -233,6 +236,17 @@ int main(void) {
 
     adc_controller->RegisterPausedService(sensors_controller->GetProcessingService());
     canbus_controller->RegisterDependentService(sensors_controller->GetProcessingService());
+
+#ifdef CONFIG_APP_SENSOR_SHELL
+    // Independent of the logging controller: a board without an SD card can still drive CAN messages
+    // and other units' triggers.
+    eerie_leap::shell::AttachSensorShell(
+        sensor_readings_frame,
+        sensors_controller->GetConfigurationManager(),
+        sensors_controller->GetProcessingService(),
+        time_service,
+        config_work_queue_thread);
+#endif
 
     const auto canbus_com_service = canbus_controller->GetComService();
 
