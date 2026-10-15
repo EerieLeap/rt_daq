@@ -11,15 +11,22 @@ config APP_LOGGING_AUTOSTART_DELAY_MS
     int "Start logging automatically after this delay (0 = disabled)"
     default 0
     help
-      Starts the log writer this many milliseconds after boot without a CDMP
-      LOGGING command. Bench use only; leave at 0 in a shipped build.
+      Requests a logging start this many milliseconds after boot, standing
+      in for the CDMP LOGGING command or a trigger. Only on a board with an
+      SD file system, which has the logging controller; without a card the
+      start fails and is logged. Bench use only; leave at 0 in a shipped
+      build.
 
 config APP_SETUP_LOGGING_CONFIGURATION
     bool "Persist the test logging configuration at boot"
     help
       Runs SetupLoggingConfiguration() once at boot, which stores a logging
-      configuration enabling four of the test sensors. The configuration stays
-      on the unit until it is replaced.
+      configuration enabling four of the test sensors. It needs the test
+      sensors (SetupTestSensors) in the stored sensors configuration, or it
+      logs an error and stores nothing. It runs only with the logging
+      controller (a board with an SD file system); without it the option
+      does nothing. The configuration stays on the unit until it is
+      replaced.
 
 config APP_LOGGING_SHELL
     bool "Shell commands to start, stop and inspect the log writer"
@@ -27,11 +34,15 @@ config APP_LOGGING_SHELL
     help
       Adds 'logging start', 'logging stop' and 'logging status' to the Zephyr
       shell, standing in for the CDMP LOGGING command on a bench without a
-      CAN peer. 'logging start' writes the MDF header on the shell thread, so
-      use a SHELL_STACK_SIZE of 4096 or more. 'logging config <interval_ms>
-      <max_log_size_mb>' stores those two fields of the logging configuration
-      and prints the previous values; 'logging reapply-sensors' applies the
-      stored sensors configuration again. Both run on the configuration work
-      queue, as an SMP apply does, and both restart a running writer.
+      CAN peer. Start and stop queue a request, as the command does, and the
+      log writer starts or stops on the configuration work queue, so starting
+      and stopping do no file work on the shell thread. 'logging status'
+      shows whether logging is active, the writer's state and its counters.
+      'logging config <interval_ms> <max_log_size_mb>' stores those two fields
+      of the logging configuration and prints the previous values; 'logging
+      reapply-sensors' applies the stored sensors configuration again. Both
+      run on the configuration work queue, as an SMP apply does, and both
+      restart a running writer. 'logging unmount-sd' unmounts the card under
+      the writer as a bench fault, on the shell thread; reboot to recover.
 
 endmenu

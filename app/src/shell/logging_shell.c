@@ -52,9 +52,9 @@ static int cmd_logging_unmount_sd(const struct shell *sh, size_t argc, char **ar
 }
 
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_logging,
-	SHELL_CMD(start, NULL, "Start the log writer (new file).", cmd_logging_start),
-	SHELL_CMD(stop, NULL, "Stop the log writer (finalize the file).", cmd_logging_stop),
-	SHELL_CMD(status, NULL, "Log writer state, counters and configuration.", cmd_logging_status),
+	SHELL_CMD(start, NULL, "Request a logging start (a new file), as the CDMP command does.", cmd_logging_start),
+	SHELL_CMD(stop, NULL, "Request a logging stop (the file is finalized).", cmd_logging_stop),
+	SHELL_CMD(status, NULL, "Whether logging is active, the log writer's state and counters.", cmd_logging_status),
 	SHELL_CMD_ARG(config, NULL,
 		"Store the logging interval and size limit, keeping the sensor entries; "
 		"prints the previous values and restarts a running writer.\n"

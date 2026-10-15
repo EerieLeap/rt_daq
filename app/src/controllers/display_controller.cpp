@@ -1,3 +1,10 @@
+#include <variant>
+
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+
+#include "subsys/event_bus/event_channel.h"
+#include "domain/logging_domain/event_bus/logging_events_channel.h"
 #include "views/animations/particles_animation.h"
 #include "views/animations/wave_lines_animation.h"
 #include "views/animations/tapered_wave_animation.h"
@@ -5,12 +12,36 @@
 
 #include "display_controller.h"
 
+LOG_MODULE_REGISTER(display_controller_logger);
+
 namespace eerie_leap::controllers {
 
 using namespace eerie_leap::views::animations;
 
+using eerie_leap::subsys::event_bus::CreateScopedSubscription;
+using eerie_leap::subsys::threading::WorkQueueTaskResult;
+using eerie_leap::domain::logging_domain::event_bus::LoggingEventsChannel;
+using eerie_leap::domain::logging_domain::event_bus::LoggingEventType;
+using eerie_leap::domain::logging_domain::event_bus::LoggingPayloadType;
+
 DisplayController::DisplayController(std::shared_ptr<Cfb> cfb)
-    : cfb_(std::move(cfb)), current_animation_index_(0) { }
+    : cfb_(std::move(cfb)),
+    current_animation_index_(0),
+    guard_(std::make_shared<DispatchGuard>(this)) { }
+
+DisplayController::~DisplayController() {
+    // Detach before the unsubscribe and the cancel: a handler in flight could otherwise reschedule
+    // the task after the cancel.
+    guard_->Detach();
+    logging_status_subscription_.reset();
+
+    if(logging_status_task_.has_value())
+        logging_status_task_->Cancel();
+
+    // The animation handler refers to this and the Cfb outlives the controller, so stop it here
+    // rather than clear the handler: the Cfb divides by the handler's frame rate.
+    StopAnimation();
+}
 
 void DisplayController::Initialize() {
     if(!cfb_ || is_initialized_)
@@ -20,6 +51,59 @@ void DisplayController::Initialize() {
     is_initialized_ = true;
 
     StartAnimation(0);
+}
+
+void DisplayController::FollowLoggingStatus(std::shared_ptr<WorkQueueThread> work_queue_thread) {
+    if(!is_initialized_ || logging_status_subscription_ != nullptr)
+        return;
+
+    if(work_queue_thread == nullptr) {
+        LOG_ERR("Failed to follow the logging status: no work queue.");
+        return;
+    }
+
+    logging_status_work_queue_thread_ = std::move(work_queue_thread);
+
+    // The task comes first, so a handler never finds it empty.
+    logging_status_task_ = logging_status_work_queue_thread_->CreateTask(
+        [](DisplayController* controller) {
+            controller->UpdateLoggingStatus();
+            return WorkQueueTaskResult{};
+        }, this);
+
+    // The writer publishes asynchronously, so the handler runs on the bus thread; the display is
+    // not thread-safe, so what it triggers runs on the work queue.
+    logging_status_subscription_ = CreateScopedSubscription(
+        LoggingEventsChannel::GetInstance(),
+        LoggingEventType::StatusUpdated,
+        [guard = guard_, this](const LoggingEventsChannel::EventMessage& event) {
+            guard->Dispatch([&] {
+                const auto is_active = event.payload.find(LoggingPayloadType::IsActive);
+                is_logging_active_ = is_active != event.payload.end()
+                    && std::holds_alternative<bool>(is_active->second)
+                    && std::get<bool>(is_active->second);
+
+                logging_status_task_->Reschedule(K_NO_WAIT);
+            });
+        });
+    if(logging_status_subscription_ == nullptr)
+        LOG_ERR("Failed to follow the logging status.");
+}
+
+// On the work queue given to FollowLoggingStatus().
+void DisplayController::UpdateLoggingStatus() {
+    // Only on a change: removing the last status restarts the idle animation.
+    const bool is_active = is_logging_active_.load();
+    if(is_active == is_logging_status_shown_)
+        return;
+
+    if(is_active)
+        AddStatus("log");
+    else
+        RemoveStatus("log");
+
+    is_logging_status_shown_ = is_active;
+    LOG_DBG("Logging status %s.", is_active ? "shown" : "hidden");
 }
 
 void DisplayController::StartAnimation(int animation_index) {

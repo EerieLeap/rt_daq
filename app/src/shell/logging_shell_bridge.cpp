@@ -14,6 +14,7 @@
 
 #include "utilities/memory/memory_resource_manager.h"
 #include "subsys/device_tree/dt_fs.h"
+#include "domain/logging_domain/control/i_logging_control.h"
 #include "domain/logging_domain/models/logging_configuration.h"
 
 #include "logging_shell_bridge.h"
@@ -24,6 +25,7 @@ using eerie_leap::utilities::memory::Mrm;
 using eerie_leap::subsys::threading::WorkQueueThread;
 using eerie_leap::controllers::LoggingController;
 using eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager;
+using eerie_leap::domain::logging_domain::control::ILoggingControl;
 using eerie_leap::domain::logging_domain::models::LoggingConfiguration;
 
 namespace {
@@ -33,6 +35,15 @@ constexpr int32_t CONFIGURATION_JOB_TIMEOUT_S = 10;
 std::shared_ptr<LoggingController> logging_controller;
 std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager;
 std::shared_ptr<WorkQueueThread> config_work_queue_thread;
+
+// Null, with the reason printed, when there is no controller to ask.
+std::shared_ptr<ILoggingControl> GetControl(const struct shell* sh) {
+    auto control = logging_controller != nullptr ? logging_controller->GetControl() : nullptr;
+    if(control == nullptr)
+        shell_error(sh, "No logging controller.");
+
+    return control;
+}
 
 bool ParseUint32(const char* text, uint32_t& value) {
     char* end = nullptr;
@@ -100,45 +111,34 @@ void AttachLoggingShell(
 } // namespace eerie_leap::shell
 
 // The command table itself is C (app/src/shell/logging_shell.c); these are its handlers.
+// A request neither throws nor waits: the supervisor starts or stops the writer on the configuration
+// work queue, and 'logging status' shows the outcome.
 extern "C" int app_logging_shell_start(const struct shell* sh) {
-    if(!eerie_leap::shell::logging_controller) {
-        shell_error(sh, "No logging controller.");
+    auto control = eerie_leap::shell::GetControl(sh);
+    if(control == nullptr)
         return -ENODEV;
-    }
 
-    try {
-        const bool started = eerie_leap::shell::logging_controller->LogWriterStart();
-        shell_print(sh, started ? "Logging started." : "Logging did not start.");
+    control->RequestStart();
+    shell_print(sh, "Logging start requested; 'logging status' shows the outcome.");
 
-        return started ? 0 : -EIO;
-    } catch(const std::exception& e) {
-        shell_error(sh, "Start failed: %s", e.what());
-        return -EIO;
-    }
+    return 0;
 }
 
 extern "C" int app_logging_shell_stop(const struct shell* sh) {
-    if(!eerie_leap::shell::logging_controller) {
-        shell_error(sh, "No logging controller.");
+    auto control = eerie_leap::shell::GetControl(sh);
+    if(control == nullptr)
         return -ENODEV;
-    }
 
-    try {
-        const bool stopped = eerie_leap::shell::logging_controller->LogWriterStop();
-        shell_print(sh, stopped ? "Logging stopped." : "Logging did not stop.");
+    control->RequestStop();
+    shell_print(sh, "Logging stop requested; 'logging status' shows the outcome.");
 
-        return stopped ? 0 : -EIO;
-    } catch(const std::exception& e) {
-        shell_error(sh, "Stop failed: %s", e.what());
-        return -EIO;
-    }
+    return 0;
 }
 
 extern "C" int app_logging_shell_status(const struct shell* sh) {
-    if(!eerie_leap::shell::logging_controller) {
-        shell_error(sh, "No logging controller.");
+    auto control = eerie_leap::shell::GetControl(sh);
+    if(control == nullptr)
         return -ENODEV;
-    }
 
     auto service = eerie_leap::shell::logging_controller->GetLogWriterService();
     if(!service) {
@@ -147,7 +147,8 @@ extern "C" int app_logging_shell_status(const struct shell* sh) {
     }
 
     const auto stats = service->GetStats();
-    shell_print(sh, "running: %s, failed: %s", service->IsRunning() ? "yes" : "no", service->HasFailed() ? "yes" : "no");
+    shell_print(sh, "active: %s, running: %s, failed: %s",
+        control->IsActive() ? "yes" : "no", service->IsRunning() ? "yes" : "no", service->HasFailed() ? "yes" : "no");
     shell_print(sh, "ticks %u, readings %u, frames %u (dropped %u), bytes %llu, writes %u, syncs %u, rotations %u, overruns %u, errors %u, tick last/max %u/%u us",
         stats.ticks, stats.readings, stats.frames, stats.frames_dropped,
         static_cast<unsigned long long>(stats.bytes), stats.stream_writes, stats.syncs,

@@ -26,6 +26,7 @@
 #include "domain/configuration_domain/services/configuration_service.h"
 #include "domain/system_domain/configuration/system_configuration_manager.h"
 #include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
+#include "domain/sensor_domain/services/sensor_events_publisher.h"
 #include "domain/sensor_domain/utilities/sensor_readings_frame.hpp"
 #include "domain/logging_domain/configuration/logging_configuration_manager.h"
 #include "domain/canbus_domain/configuration/canbus_configuration_manager.h"
@@ -41,6 +42,8 @@
 #endif
 #include "controllers/management_controller.h"
 #include "controllers/display_controller.h"
+
+#include "event_bus/event_channels.h"
 
 // Test sensors includes
 #include "domain/sensor_domain/models/sensor.h"
@@ -81,6 +84,7 @@ using namespace eerie_leap::domain::logging_domain::services;
 using namespace eerie_leap::domain::logging_domain::configuration;
 
 using namespace eerie_leap::controllers;
+using namespace eerie_leap::event_bus;
 
 LOG_MODULE_REGISTER(main_logger);
 
@@ -102,6 +106,10 @@ void SetupLoggingConfiguration(std::shared_ptr<SensorsConfigurationManager> sens
 // Formula evaluation takes minimum of 1800us, applicable to virtual sensors
 
 int main(void) {
+    // Channels are inert until a bus registers them, so this comes before anything publishes or
+    // subscribes.
+    InitializeEventChannels();
+
     DtConfigurator::Initialize(
         DtFeature::INTERNAL_FS
         | DtFeature::SD_FS
@@ -151,9 +159,10 @@ int main(void) {
     auto time_service = std::make_shared<TimeService>(rtc_provider, boot_elapsed_time_provider);
     time_service->Initialize();
 
-    // Configuration applies restart sensor processing and the log writer here, which builds the
-    // logger and writes the MDF header through FatFs: 5728 of 6144 bytes measured on the PM board
-    // (logging plan section 6.5), too close to keep.
+    // Every start and stop of the log writer runs here, whatever requested it (the CDMP command, a
+    // trigger, the shell, the autostart), besides the configuration applies that restart sensor
+    // processing and the writer. A start builds the logger and writes the MDF header through FatFs:
+    // 5728 of 6144 bytes measured on the PM board (logging plan section 6.5), too close to keep.
     int config_work_queue_stack_size = 8192;
     int config_work_queue_priority = 5;
     auto config_work_queue_thread = std::make_shared<WorkQueueThread>(
@@ -164,6 +173,9 @@ int main(void) {
         LOG_ERR("Failed to initialize the configuration work queue.");
         return -1;
     }
+
+    // Before anything can publish a logging status.
+    display_controller->FollowLoggingStatus(config_work_queue_thread);
 
     auto system_controller = std::make_shared<SystemController>(
         fs_service, config_work_queue_thread);
@@ -224,21 +236,38 @@ int main(void) {
 
     const auto canbus_com_service = canbus_controller->GetComService();
 
+    // One per unit, on the shared frame. It publishes only what a subscriber accepts: on this unit the
+    // sensors the logging triggers bind to. The frame stays empty until SensorsController::Start().
+    auto sensor_events_publisher = std::make_shared<SensorEventsPublisher>(sensor_readings_frame);
+    if(!sensor_events_publisher->Initialize() || !sensor_events_publisher->Start())
+        LOG_ERR("Failed to start the sensor events publisher.");
+
+    // Only an initialized controller is kept, so a non-null one is what the dependent, the shell, the
+    // test configuration and the autostart below can rely on.
     std::shared_ptr<LoggingController> logging_controller = nullptr;
     if(sd_fs_service != nullptr) {
-        logging_controller = std::make_shared<LoggingController>(
+        auto controller = std::make_shared<LoggingController>(
             fs_service,
             config_work_queue_thread,
             configuration_service,
+            sensors_controller->GetConfigurationManager(),
+            canbus_com_service,
+            sensor_events_publisher,
             sd_fs_service,
             time_service,
             sensor_readings_frame,
-            sensors_controller->GetConfigurationManager(),
-            canbus_com_service,
-            display_controller);
-        if(logging_controller->Initialize() != 0)
+            "rt_daq");
+        // A failed controller has torn itself down and registered nothing; dropping it here leaves
+        // nothing behind, and nothing below is wired to it.
+        if(controller->Initialize() == 0)
+            logging_controller = std::move(controller);
+        else
             LOG_ERR("Failed to initialize the logging controller.");
+    } else {
+        LOG_INF("No SD file system: no logging, logging triggers or LOGGING command on this unit.");
+    }
 
+    if(logging_controller != nullptr) {
         // Stopped before a sensors restart drops the generation the writer reads, started again
         // on the new one, so a sensors apply while logging finalizes the file and opens the next.
         sensors_controller->RegisterDependentService(logging_controller->GetDependentService());
@@ -279,15 +308,12 @@ int main(void) {
     canbus_scheduler_service->Start();
 
 #if CONFIG_APP_LOGGING_AUTOSTART_DELAY_MS > 0
-    // Bench aid: stands in for the CDMP LOGGING command when no CAN peer is connected.
+    // Bench aid: stands in for the CDMP LOGGING command or a trigger when neither is at hand. The
+    // supervisor logs a start that fails.
     if(logging_controller != nullptr) {
         k_msleep(CONFIG_APP_LOGGING_AUTOSTART_DELAY_MS);
-        try {
-            if(!logging_controller->LogWriterStart())
-                LOG_ERR("Failed to start logging automatically.");
-        } catch(const std::exception& e) {
-            LOG_ERR("Failed to start logging automatically: %s", e.what());
-        }
+        logging_controller->GetControl()->RequestStart();
+        LOG_INF("Logging start requested automatically.");
     }
 #endif
 
@@ -562,6 +588,12 @@ void SetupLoggingConfiguration(std::shared_ptr<SensorsConfigurationManager> sens
     std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager) {
 
     auto sensors = sensors_configuration_manager->Get();
+
+    // It indexes the test sensors; a unit whose stored sensors configuration did not decode has none.
+    if(sensors == nullptr || sensors->size() < 7) {
+        LOG_ERR("The test logging configuration needs the test sensors (SetupTestSensors).");
+        return;
+    }
 
     auto logging_configuration = make_unique_pmr<LoggingConfiguration>(Mrm::GetExtPmr());
     logging_configuration->logging_interval_ms = 100;

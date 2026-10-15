@@ -89,9 +89,9 @@ there when a transceiver is attached.
 Everything the firmware needs is emulated: ADC (`ADC_EMUL`), GPIO (`GPIO_EMUL`), a CAN loopback
 controller and a simulated flash with a littlefs partition. The overlays also declare a flash
 disk named `SD`, but without the `sdfs0` alias and `zephyr,sdhc` the firmware does not mount it,
-so logging is unavailable in simulation. `native_sim` and `qemu_x86_64` get 8 MiB of RAM and a
-2 MiB heap. On native_sim code runs in zero simulated time, so tick durations in the processing
-statistics read 0.
+so logging, and with it logging triggers and the CDMP `LOGGING` command, is unavailable in
+simulation. `native_sim` and `qemu_x86_64` get 8 MiB of RAM and a 2 MiB heap. On native_sim code
+runs in zero simulated time, so tick durations in the processing statistics read 0.
 
 The Nucleo H753ZI target can also run under Renode; see [`renode/README.md`](../renode/README.md)
 for the known limitations (external flash, ADC) and the commands.

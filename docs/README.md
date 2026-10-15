@@ -9,7 +9,7 @@ they are configured is documented in rt_core:
 | Page | Covers |
 | --- | --- |
 | [getting-started.md](getting-started.md) | Dev container, building, running in simulators, flashing, debugging, tests |
-| [application.md](application.md) | What the app adds to rt_core: wiring, logging and display controllers, `prj.conf`, patches |
+| [application.md](application.md) | What the app adds to rt_core: wiring, its event bus, logging on rt_core's controller (triggers, bench aids), the display controller, `prj.conf`, patches |
 | [boards.md](boards.md) | Supported boards, what each provides, the PM board's inputs and quirks |
 
 Elsewhere in the repository:
