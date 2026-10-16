@@ -42,7 +42,8 @@ config APP_LOGGING_SHELL
       of the logging configuration and prints the previous values; 'logging
       reapply-sensors' applies the stored sensors configuration again. Both
       run on the configuration work queue, as an SMP apply does, and both
-      restart a running writer. 'logging unmount-sd' unmounts the card under
+      are configuration updates, which stop logging on every unit.
+      'logging unmount-sd' unmounts the card under
       the writer as a bench fault, on the shell thread; reboot to recover.
 
 config APP_SENSOR_SHELL

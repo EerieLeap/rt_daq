@@ -119,7 +119,7 @@ extern "C" int app_logging_shell_status(const struct shell* sh) {
 }
 
 // Replaces the stored logging configuration's interval and size limit, keeping its sensor entries.
-// The updated handler restarts a running writer with it.
+// A configuration update: a running writer stops on every unit (rt_core's logging.md).
 extern "C" int app_logging_shell_config(const struct shell* sh, size_t argc, char** argv) {
     using namespace eerie_leap::shell;
 
@@ -158,13 +158,13 @@ extern "C" int app_logging_shell_config(const struct shell* sh, size_t argc, cha
             return -EIO;
         }
 
-        message = previous + "\nStored; a running log writer restarts with it.";
+        message = previous + "\nStored; logging stops on every unit until it is started again.";
         return 0;
     });
 }
 
 // Applies the stored sensors configuration again through ApplyCborConfiguration(), as an SMP apply
-// of the same bytes would: processing restarts, and with it a running log writer.
+// of the same bytes would: processing restarts, and logging stops on every unit.
 extern "C" int app_logging_shell_reapply_sensors(const struct shell* sh) {
     using namespace eerie_leap::shell;
 
@@ -188,7 +188,7 @@ extern "C" int app_logging_shell_reapply_sensors(const struct shell* sh) {
             return -EIO;
         }
 
-        message = "Applied " + std::to_string(cbor.size()) + " bytes; processing restarts, and with it a running log writer.";
+        message = "Applied " + std::to_string(cbor.size()) + " bytes; processing restarts, and logging stops on every unit until it is started again.";
         return 0;
     });
 }

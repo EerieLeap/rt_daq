@@ -38,14 +38,17 @@ are this application's choices:
 4. The SD service is created when the board has a card slot. Its presence monitor is not started:
    on the SPI card interface the status polling interrupts logging.
 5. The configuration work queue is 8192 bytes at priority 5. Every start and stop of the log
-   writer runs there, whatever requested it, besides the configuration applies that restart sensor
-   processing and the writer; a start writes the MDF header (5728 bytes measured at 6144). The
+   writer runs there, whatever requested it, besides the configuration applies, which restart
+   sensor processing and, before `LoggingController::Start()` or for a start requested after an
+   update, the writer; a start writes the MDF header (5728 bytes measured at 6144). The
    display controller starts following the logging status on it right away.
 6. System, ADC, GPIO, CAN, sensors, the sensor events publisher, logging (only with an SD file
-   system), management, CAN scheduler. The sensor processing service is registered with the ADC
+   system; its `Start()` follows the setup hook, so what the unit stores while it starts stops no
+   logging), management, CAN scheduler. The sensor processing service is registered with the ADC
    controller (paused during calibration) and with the CAN controller (restarted on CAN
    reconfiguration), as is the CAN scheduler. The log writer is registered with the sensors
-   controller (stopped and started again around a sensors or ADC restart), and only after the
+   controller (stopped around a sensors or ADC restart, and started again on the new generation
+   while logging is still wanted), and only after the
    logging controller initialized: a controller that failed is dropped, and nothing is wired to it.
 7. Sensor processing and the CAN scheduler are started last. The autostart, when configured,
    requests a logging start; `main` then sleeps.
@@ -106,18 +109,35 @@ packed hardware and software versions, and the CRC of the stored sensors configu
 instead). What the logger writes from them is in rt_core's
 [logging.md](../modules/eerie_leap_rt_core/docs/logging.md).
 
-A configuration stored while logging runs takes effect at once. A sensors or ADC apply finalizes
-the file and opens the next on the new sensors: `main()` registers the supervisor's dependent
-(`GetDependentService()`) with the sensors controller, and it starts the writer again only while
-logging is still wanted. A logging configuration (interval, size limit, sensor selection) restarts
-a running writer. A stop during a restart, or a failed session, is not undone. A session that
-failed (write failed, no space at a rotation, rotation failed) is stopped by the supervisor on the
-configuration work queue, which finalizes what the card still takes and closes the file; the next
-start, from any source, begins a new file.
+A configuration stored on a unit stops logging on every unit, whatever its type: sensors, ADC, CAN,
+logging, logging triggers, system, UI or display, written over SMP or by a shell command, on this
+unit or on another. Here the writer stops for good: the file is finalized, the wanted state is
+cleared, and neither the restart after a logging configuration nor the sensors restart starts it
+again, so no new file opens. This unit broadcasts the `LOGGING` stop, so every other unit that logs
+stops too, and it stops when another unit broadcasts it. The supervisor logs the stop, and the
+sender logs "Logging stop command failed." when no other unit is online. Logging starts again with
+a new start request (a trigger's change, the `LOGGING` command, the shell). A start requested right
+after the update wins as the later request, and then the restart does finalize the file and open the
+next on the new sensors: `main()` registers the supervisor's dependent (`GetDependentService()`)
+with the sensors controller, and it starts the writer again only while logging is still wanted.
+
+What this unit stores while it starts is no update: the first-boot defaults and the test
+configuration (`SetupLoggingConfiguration()`) come before `logging_controller->Start()`, which
+`main()` calls before `ManagementController`, so a reboot of this unit does not stop the logging of
+another. The rt_daq bench shell can store earlier, on its own thread, and that stops nothing
+either. Every other successful store counts, one of unchanged bytes too; a rejected write does
+not. A stop during a restart, or a failed session, is not undone. A session that failed (write
+failed, no space at a rotation, rotation failed) is stopped by the supervisor on the configuration
+work queue, which finalizes what the card still takes and closes the file; the next start, from any
+source, begins a new file. The rule and its exceptions are in rt_core's
+[logging.md](../modules/eerie_leap_rt_core/docs/logging.md#configuration-updates).
 
 Without an SD file system (the DevKitC and the simulators), or after a failed `Initialize()`, the
 unit has no logging, no triggers, no `LOGGING` handler and no shared status. It contributes no
-record, so other units see only the units that log, and `Unavailable` when none does.
+record, so other units see only the units that log, and `Unavailable` when none does. With a CAN
+COM service it still broadcasts the `LOGGING` stop when a configuration is stored on it
+(`ConfigurationUpdateLoggingStop` with a sender, built in `main()`), since its sensors and messages
+feed the files of the units that log.
 
 ### Triggers
 
@@ -138,13 +158,17 @@ them from YAML descriptions over the console of a bench build (see [Development 
 Behaviour:
 
 - A change of the value from 0 to 1 requests a start and from 1 to 0 a stop.
-- A first value of 1 requests a start, so a switch that is on at boot starts logging.
-- A trigger only requests. A stop from the shell or from another unit stands until the switch
-  moves, or until the triggers' configuration is stored again: its replay makes a switch that is on
-  request a start (see rt_core's
+- At boot a first value of 1 requests a start, so a switch that is on at boot starts logging. After
+  a configuration update the first value is a baseline: nothing starts until the next 0 to 1, so
+  a switch that is on stays on and starts nothing, and storing the triggers again no longer starts
+  logging either (see rt_core's
   [logging.md](../modules/eerie_leap_rt_core/docs/logging.md#triggers)).
+- A trigger only requests. A stop from the shell or from another unit stands until the switch
+  moves.
 - A trigger whose sensor does not exist is logged when the triggers are built, and acts once a
-  sensor with that id appears.
+  sensor with that id appears; the first value it reads then is a baseline if an update came
+  before. A sensors update that removes, disables or renames the trigger's sensor withdraws the
+  trigger: it forgets its value, and the sensor back under that id is a baseline.
 
 The sensor events publisher sends only the bound sensors on `sensor_events`.
 
@@ -181,11 +205,11 @@ shell:
 | --- | --- |
 | `logging start`, `logging stop` | Queue a start or a stop, as the CDMP command does; `logging status` shows the outcome. No file work runs on the shell thread. |
 | `logging status` | Whether logging is active (`IsActive()`), the writer's running and failed flags and its counters. |
-| `logging config <interval_ms> <max_log_size_mb>` | Stores those two fields of the logging configuration, keeping its sensor entries, and prints the previous values to restore them with; a running writer restarts with it. |
-| `logging reapply-sensors` | Applies the stored sensors configuration again: its stored CBOR (`GetCborConfiguration()`) through `ApplyCborConfiguration()`, the path an SMP apply takes, so the restart of processing and of a running writer can be exercised without an SMP client. |
+| `logging config <interval_ms> <max_log_size_mb>` | Stores those two fields of the logging configuration, keeping its sensor entries, and prints the previous values to restore them with. A configuration update: logging stops on every unit. |
+| `logging reapply-sensors` | Applies the stored sensors configuration again: its stored CBOR (`GetCborConfiguration()`) through `ApplyCborConfiguration()`, the path an SMP apply takes, so a configuration update, the restart of processing and the stop of logging that comes with it can be exercised without an SMP client. |
 | `logging unmount-sd` | A bench fault: unmounts the card under the writer, as a pulled card does at the file system layer. It runs on the shell thread; reboot to mount the card again. |
 
-`logging config` and `logging reapply-sensors` run on the configuration work queue, as an SMP apply does.
+`logging config` and `logging reapply-sensors` run on the configuration work queue, as an SMP apply does, and both are configuration updates: logging stops on every unit until it is started again.
 
 `APP_SENSOR_SHELL` adds the `sensor` commands, which stand in for a sensor's source so a bench can drive
 triggers and the CAN messages that carry a sensor without wiring an input:

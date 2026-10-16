@@ -29,6 +29,8 @@
 #include "domain/sensor_domain/services/sensor_events_publisher.h"
 #include "domain/sensor_domain/utilities/sensor_readings_frame.hpp"
 #include "domain/logging_domain/configuration/logging_configuration_manager.h"
+#include "domain/logging_domain/control/canbus_com_logging_command_sender.h"
+#include "domain/logging_domain/control/configuration_update_logging_stop.h"
 #include "domain/canbus_domain/configuration/canbus_configuration_manager.h"
 #include "domain/canbus_domain/services/canbus_scheduler_service.h"
 
@@ -85,6 +87,7 @@ using namespace eerie_leap::domain::sensor_domain::utilities;
 using namespace eerie_leap::domain::logging_domain::models;
 using namespace eerie_leap::domain::logging_domain::services;
 using namespace eerie_leap::domain::logging_domain::configuration;
+using namespace eerie_leap::domain::logging_domain::control;
 
 using namespace eerie_leap::controllers;
 using namespace eerie_leap::event_bus;
@@ -163,8 +166,9 @@ int main(void) {
     time_service->Initialize();
 
     // Every start and stop of the log writer runs here, whatever requested it (the CDMP command, a
-    // trigger, the shell, the autostart), besides the configuration applies that restart sensor
-    // processing and the writer. A start builds the logger and writes the MDF header through FatFs:
+    // trigger, the shell, the autostart), besides the configuration applies, which restart sensor
+    // processing and, before LoggingController::Start() or for a start requested after an update,
+    // the writer. A start builds the logger and writes the MDF header through FatFs:
     // 5728 of 6144 bytes measured on the PM board (logging plan section 6.5), too close to keep.
     int config_work_queue_stack_size = 8192;
     int config_work_queue_priority = 5;
@@ -259,6 +263,8 @@ int main(void) {
     // Only an initialized controller is kept, so a non-null one is what the dependent, the shell, the
     // test configuration and the autostart below can rely on.
     std::shared_ptr<LoggingController> logging_controller = nullptr;
+    // Only without a logging controller: the stop of a configuration update, with no log writer to stop.
+    std::unique_ptr<ConfigurationUpdateLoggingStop> configuration_update_logging_stop;
     if(sd_fs_service != nullptr) {
         auto controller = std::make_shared<LoggingController>(
             fs_service,
@@ -282,8 +288,11 @@ int main(void) {
     }
 
     if(logging_controller != nullptr) {
-        // Stopped before a sensors restart drops the generation the writer reads, started again
-        // on the new one, so a sensors apply while logging finalizes the file and opens the next.
+        // Stopped before a sensors restart drops the generation the writer reads, and started again
+        // on the new one while logging is still wanted: a sensors store during boot, or one followed
+        // by a new start request, finalizes the file and opens the next. After
+        // logging_controller->Start() a stored configuration stops logging first (L9), and the
+        // dependent finds the writer stopped.
         sensors_controller->RegisterDependentService(logging_controller->GetDependentService());
 
 #ifdef CONFIG_APP_LOGGING_SHELL
@@ -297,6 +306,21 @@ int main(void) {
 #ifdef CONFIG_APP_SETUP_LOGGING_CONFIGURATION
         SetupLoggingConfiguration(sensors_controller->GetConfigurationManager(), logging_controller->GetConfigurationManager());
 #endif
+
+        // Last of the boot's stores: from here on a configuration stored on this unit stops logging on
+        // every unit.
+        if(logging_controller->Start() != 0)
+            LOG_ERR("Failed to start the logging controller.");
+    } else if(canbus_com_service != nullptr) {
+        // No logging here, but what this unit measures and sends goes into the files of the units that
+        // log, so a configuration stored on it stops their logging too.
+        configuration_update_logging_stop = std::make_unique<ConfigurationUpdateLoggingStop>(
+            configuration_service,
+            config_work_queue_thread,
+            nullptr,
+            std::make_shared<CanbusComLoggingCommandSender>(canbus_com_service));
+        if(!configuration_update_logging_stop->Initialize() || !configuration_update_logging_stop->Start())
+            LOG_ERR("Failed to start the configuration update stop.");
     }
 
     // Constructed after every controller that registers a configuration manager.

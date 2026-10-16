@@ -57,12 +57,12 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_logging,
 	SHELL_CMD(status, NULL, "Whether logging is active, the log writer's state and counters.", cmd_logging_status),
 	SHELL_CMD_ARG(config, NULL,
 		"Store the logging interval and size limit, keeping the sensor entries; "
-		"prints the previous values and restarts a running writer.\n"
+		"prints the previous values. Logging stops on every unit.\n"
 		"Usage: logging config <interval_ms> <max_log_size_mb>",
 		cmd_logging_config, 3, 0),
 	SHELL_CMD(reapply-sensors, NULL,
 		"Apply the stored sensors configuration again, as an SMP apply does: "
-		"processing restarts, and a running writer with it.",
+		"processing restarts and logging stops on every unit.",
 		cmd_logging_reapply_sensors),
 	SHELL_CMD(unmount-sd, NULL, "Bench fault: unmount the SD card under the writer; reboot to recover.",
 		  cmd_logging_unmount_sd),
