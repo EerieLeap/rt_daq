@@ -350,7 +350,8 @@ int main(void) {
     // supervisor logs a start that fails.
     if(logging_controller != nullptr) {
         k_msleep(CONFIG_APP_LOGGING_AUTOSTART_DELAY_MS);
-        logging_controller->GetControl()->RequestStart();
+        // This unit only: the bench aid stands in for a local trigger.
+        logging_controller->GetControl()->RequestStart(logging_controller->GetUnitUid());
         LOG_INF("Logging start requested automatically.");
     }
 #endif

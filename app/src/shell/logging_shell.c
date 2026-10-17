@@ -4,8 +4,8 @@
 
 /* Handlers live in logging_shell_bridge.cpp; the command table stays in C so the
  * shell macros need no C++ accommodations. */
-int app_logging_shell_start(const struct shell *sh);
-int app_logging_shell_stop(const struct shell *sh);
+int app_logging_shell_start(const struct shell *sh, size_t argc, char **argv);
+int app_logging_shell_stop(const struct shell *sh, size_t argc, char **argv);
 int app_logging_shell_status(const struct shell *sh);
 int app_logging_shell_config(const struct shell *sh, size_t argc, char **argv);
 int app_logging_shell_reapply_sensors(const struct shell *sh);
@@ -13,16 +13,12 @@ int app_logging_shell_unmount_sd(const struct shell *sh);
 
 static int cmd_logging_start(const struct shell *sh, size_t argc, char **argv)
 {
-	ARG_UNUSED(argc);
-	ARG_UNUSED(argv);
-	return app_logging_shell_start(sh);
+	return app_logging_shell_start(sh, argc, argv);
 }
 
 static int cmd_logging_stop(const struct shell *sh, size_t argc, char **argv)
 {
-	ARG_UNUSED(argc);
-	ARG_UNUSED(argv);
-	return app_logging_shell_stop(sh);
+	return app_logging_shell_stop(sh, argc, argv);
 }
 
 static int cmd_logging_status(const struct shell *sh, size_t argc, char **argv)
@@ -52,8 +48,14 @@ static int cmd_logging_unmount_sd(const struct shell *sh, size_t argc, char **ar
 }
 
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_logging,
-	SHELL_CMD(start, NULL, "Request a logging start (a new file), as the CDMP command does.", cmd_logging_start),
-	SHELL_CMD(stop, NULL, "Request a logging stop (the file is finalized).", cmd_logging_stop),
+	SHELL_CMD_ARG(start, NULL,
+		"Request a logging start (a new file), as the CDMP command does; every unit that can log by default.\n"
+		"Usage: logging start [target_uid]",
+		cmd_logging_start, 1, 1),
+	SHELL_CMD_ARG(stop, NULL,
+		"Request a logging stop (the file is finalized); every unit by default.\n"
+		"Usage: logging stop [target_uid]",
+		cmd_logging_stop, 1, 1),
 	SHELL_CMD(status, NULL, "Whether logging is active, the log writer's state and counters.", cmd_logging_status),
 	SHELL_CMD_ARG(config, NULL,
 		"Store the logging interval and size limit, keeping the sensor entries; "

@@ -203,7 +203,7 @@ shell:
 
 | Command | Effect |
 | --- | --- |
-| `logging start`, `logging stop` | Queue a start or a stop, as the CDMP command does; `logging status` shows the outcome. No file work runs on the shell thread. |
+| `logging start [target_uid]`, `logging stop [target_uid]` | Queue a start or a stop, as the CDMP command does: for every unit that can log without a target (this unit's writer and one broadcast), for the unit with that CDMP UID with one (this unit's own UID means this writer only). `logging status` shows the outcome. No file work runs on the shell thread. |
 | `logging status` | Whether logging is active (`IsActive()`), the writer's running and failed flags and its counters. |
 | `logging config <interval_ms> <max_log_size_mb>` | Stores those two fields of the logging configuration, keeping its sensor entries, and prints the previous values to restore them with. A configuration update: logging stops on every unit. |
 | `logging reapply-sensors` | Applies the stored sensors configuration again: its stored CBOR (`GetCborConfiguration()`) through `ApplyCborConfiguration()`, the path an SMP apply takes, so a configuration update, the restart of processing and the stop of logging that comes with it can be exercised without an SMP client. |
@@ -286,14 +286,14 @@ a change. A board without a display does not subscribe.
 
 | Area | Setting | Why |
 | --- | --- | --- |
-| Product identity | `PRODUCT_FAMILY_PROCESSING_MODULE`, `PRODUCT_ID=50177` (0xC401), `FEATURES_CANBUS`, hardware and software versions | Reported over BLE and the SMP `device` group; see rt_core's [system.md](../modules/eerie_leap_rt_core/docs/system.md). |
+| Product identity | `PRODUCT_ID=50177` (0xC401), hardware and software versions; the unit features follow the domains in the build (`CANBUS`, `LOGGING`) | Reported over BLE and the SMP `device` group, the features also over CDMP (`LOGGING` only while the log volume is available); see rt_core's [system.md](../modules/eerie_leap_rt_core/docs/system.md). |
 | Language | C++23, full libc++, exceptions and RTTI | Required by rt_core. |
 | Logging | `LOG_MODE_IMMEDIATE`, early console, thread analyzer, runtime stats | Development build defaults; immediate mode costs time on the logging thread. |
 | Memory | 64 KiB kernel heap, libc malloc, dynamic thread stacks | Configuration objects and Lua states live on the external heap where the board has one. |
 | Filesystems | littlefs on internal flash; FAT on the SD card is enabled per board | `config/` on littlefs, logs and scripts on the card. |
 | CAN | `CAN_FD_MODE` | The PM board's MCP2518FD channel runs CAN FD. |
 | Threads | SD monitor 3072, log writer 6144, sensor processing priority 5 | Priority 5 puts sampling above the display, CAN scheduler and calibration threads; on the PM board this cut the 50 ms group's period jitter from milliseconds to tens of microseconds. The log writer peaks at 3648 bytes during a file rotation (about 1950 otherwise) on the PM board. |
-| rt_core systems | Every subsystem including the event bus, the ADC, CAN, CAN COM (device type `LOGGER`), script, sensor, system and logging domains, and the system, management, ADC, CAN, sensors and logging controllers | Bluetooth is not enabled in this application. |
+| rt_core systems | Every subsystem including the event bus, the ADC, CAN, CAN COM, script, sensor, system and logging domains, and the system, management, ADC, CAN, sensors and logging controllers | Bluetooth is not enabled in this application. |
 
 ## Patches
 

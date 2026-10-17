@@ -57,6 +57,13 @@ bool ParseUint32(const char* text, uint32_t& value) {
     return true;
 }
 
+// The optional target of start and stop: a unit's UID, every unit that can log without it.
+bool ParseTarget(size_t argc, char** argv, uint32_t& target_uid) {
+    target_uid = ILoggingControl::kAllUnits;
+
+    return argc < 2 || ParseUint32(argv[1], target_uid);
+}
+
 } // namespace
 
 void AttachLoggingShell(
@@ -74,23 +81,35 @@ void AttachLoggingShell(
 // The command table itself is C (app/src/shell/logging_shell.c); these are its handlers.
 // A request neither throws nor waits: the supervisor starts or stops the writer on the configuration
 // work queue, and 'logging status' shows the outcome.
-extern "C" int app_logging_shell_start(const struct shell* sh) {
+extern "C" int app_logging_shell_start(const struct shell* sh, size_t argc, char** argv) {
     auto control = eerie_leap::shell::GetControl(sh);
     if(control == nullptr)
         return -ENODEV;
 
-    control->RequestStart();
+    uint32_t target_uid = 0;
+    if(!eerie_leap::shell::ParseTarget(argc, argv, target_uid)) {
+        shell_error(sh, "Usage: logging start [target_uid]");
+        return -EINVAL;
+    }
+
+    control->RequestStart(target_uid);
     shell_print(sh, "Logging start requested; 'logging status' shows the outcome.");
 
     return 0;
 }
 
-extern "C" int app_logging_shell_stop(const struct shell* sh) {
+extern "C" int app_logging_shell_stop(const struct shell* sh, size_t argc, char** argv) {
     auto control = eerie_leap::shell::GetControl(sh);
     if(control == nullptr)
         return -ENODEV;
 
-    control->RequestStop();
+    uint32_t target_uid = 0;
+    if(!eerie_leap::shell::ParseTarget(argc, argv, target_uid)) {
+        shell_error(sh, "Usage: logging stop [target_uid]");
+        return -EINVAL;
+    }
+
+    control->RequestStop(target_uid);
     shell_print(sh, "Logging stop requested; 'logging status' shows the outcome.");
 
     return 0;
