@@ -16,5 +16,13 @@
         "/home/ubuntu/zephyr/workspace/zephyr/dts/vendor",
         "/home/ubuntu/zephyr/workspace/zephyr/include",
         "/home/ubuntu/zephyr/workspace/zephyr/dts/xtensa"
-    ]
+    ],
+
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.clang_format_path": "/home/ubuntu/zephyr/.venv/bin/clang-format",
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.clang_format_fallbackStyle": "none",
+    "C_Cpp.clang_format_sortIncludes": true,
+    "[cpp]": { "editor.defaultFormatter": "ms-vscode.cpptools", "editor.formatOnSave": true },
+    "[c]": { "editor.defaultFormatter": "ms-vscode.cpptools", "editor.formatOnSave": true }
 }
