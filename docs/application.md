@@ -36,7 +36,10 @@ are this application's choices:
 3. The display is initialized first so the idle animation runs while the rest boots. The display
    controller's work queue runs at priority 6, below sensor processing.
 4. The SD service is created when the board has a card slot. Its presence monitor is not started:
-   on the SPI card interface the status polling interrupts logging.
+   on the SPI card interface the status polling interrupts logging. The shared `AssetsManager`
+   follows the file systems: the CAN, sensors and logging controllers register the asset kinds
+   they own with it (CAN and sensor scripts, logs; only with an SD service), and the management
+   controller serves them in the SMP `assets` group.
 5. The configuration work queue is 8192 bytes at priority 5. Every start and stop of the log
    writer runs there, whatever requested it, besides the configuration applies, which restart
    sensor processing and, before `LoggingController::Start()` or for a start requested after an
@@ -290,7 +293,7 @@ a change. A board without a display does not subscribe.
 | Language | C++23, full libc++, exceptions and RTTI | Required by rt_core. |
 | Logging | `LOG_MODE_IMMEDIATE`, early console, thread analyzer, runtime stats | Development build defaults; immediate mode costs time on the logging thread. |
 | Memory | 64 KiB kernel heap, libc malloc, dynamic thread stacks | Configuration objects and Lua states live on the external heap where the board has one. |
-| Filesystems | littlefs on internal flash; FAT on the SD card is enabled per board | `config/` on littlefs, logs and scripts on the card. |
+| Filesystems | littlefs on internal flash; FAT on the SD card is enabled per board | `config/` on littlefs, logs (`logs/`) and scripts (`scripts/sensors/`, `scripts/can/`) on the card. `EERIE_LEAP_ASSETS` serves those directories in the SMP `assets` group, which needs FatFs reentrancy where FAT is on (`FS_FATFS_REENTRANT`, set on the PM and `qemu_cortex_a9` boards). |
 | CAN | `CAN_FD_MODE` | The PM board's MCP2518FD channel runs CAN FD. |
 | Threads | SD monitor 3072, log writer 6144, sensor processing priority 5 | Priority 5 puts sampling above the display, CAN scheduler and calibration threads; on the PM board this cut the 50 ms group's period jitter from milliseconds to tens of microseconds. The log writer peaks at 3648 bytes during a file rotation (about 1950 otherwise) on the PM board. |
 | rt_core systems | Every subsystem including the event bus, the ADC, CAN, CAN COM, script, sensor, system and logging domains, and the system, management, ADC, CAN, sensors and logging controllers | Bluetooth is not enabled in this application. |

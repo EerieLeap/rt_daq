@@ -12,6 +12,7 @@
 #include "subsys/device_tree/dt_fs.h"
 #include "subsys/device_tree/dt_display.h"
 
+#include "subsys/assets/assets_manager.h"
 #include "subsys/fs/services/fs_service.h"
 #include "subsys/fs/services/sdmmc_service.h"
 #include "subsys/gpio/gpio_factory.hpp"
@@ -66,6 +67,7 @@ using namespace eerie_leap::utilities::memory;
 using namespace eerie_leap::utilities::dev_tools;
 
 using namespace eerie_leap::subsys::device_tree;
+using eerie_leap::subsys::assets::AssetsManager;
 using namespace eerie_leap::subsys::fs::services;
 using namespace eerie_leap::subsys::gpio;
 using namespace eerie_leap::subsys::cfb;
@@ -160,6 +162,9 @@ int main(void) {
         return -1;
     }
 
+    // Shared: controllers register the asset kinds they own, and the management controller serves them.
+    auto assets_manager = std::make_shared<AssetsManager>();
+
     auto rtc_provider = std::make_shared<RtcProvider>();
     auto boot_elapsed_time_provider = std::make_shared<BootElapsedTimeProvider>();
     auto time_service = std::make_shared<TimeService>(rtc_provider, boot_elapsed_time_provider);
@@ -213,7 +218,8 @@ int main(void) {
         fs_service,
         config_work_queue_thread,
         configuration_service,
-        sd_fs_service);
+        sd_fs_service,
+        assets_manager);
     // TODO: For test purposes only
     // if(canbus_controller->Initialize(SetupCanbusConfiguration) != 0)
     if(canbus_controller->Initialize() != 0)
@@ -232,7 +238,8 @@ int main(void) {
         gpio,
         adc_controller->GetManager(),
         adc_controller->GetConfigurationManager(),
-        sd_fs_service);
+        sd_fs_service,
+        assets_manager);
     // TODO: For test purposes only
     // if(sensors_controller->Initialize(SetupTestSensors) != 0)
     if(sensors_controller->Initialize() != 0)
@@ -276,7 +283,8 @@ int main(void) {
             sd_fs_service,
             time_service,
             sensor_readings_frame,
-            "rt_daq");
+            "rt_daq",
+            assets_manager);
         // A failed controller has torn itself down and registered nothing; dropping it here leaves
         // nothing behind, and nothing below is wired to it.
         if(controller->Initialize() == 0)
@@ -331,7 +339,8 @@ int main(void) {
         canbus_com_service != nullptr ? canbus_com_service->GetNetworkInfo() : nullptr,
         system_configuration != nullptr ? system_configuration->build_number : 0,
         sensors_controller->GetCapabilities(),
-        sd_fs_service);
+        sd_fs_service,
+        assets_manager);
     if(management_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the management controller.");
 

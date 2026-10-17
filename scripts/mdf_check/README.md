@@ -1,6 +1,6 @@
 # MDF log checks
 
-Python helpers for the MDF 4 files rt_daq writes to `data_logs/` on the SD card. They need
+Python helpers for the MDF 4 files rt_daq writes to `logs/` on the SD card. They need
 [asammdf](https://github.com/danielhrisca/asammdf) (`pip install asammdf`).
 
 | Script | Use |
