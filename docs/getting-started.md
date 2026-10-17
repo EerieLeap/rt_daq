@@ -131,6 +131,27 @@ west twister -c --disable-warnings-as-errors -j 4 -O ./twister-out -T ./modules/
 Narrow with `-p native_sim`, `-t <tag>` or `-T <suite path>`; the platforms and known gaps are in
 `modules/eerie_leap_rt_core/README.md`. The application itself has no test suite.
 
+## Formatting
+
+C/C++ follows `.clang-format` (clang-format 23.1.1; the dev container pins it, elsewhere
+`pip install clang-format==23.1.1`; older majors refuse the config).
+
+| Command | Does |
+|---|---|
+| `scripts/format.sh` | Checks the tracked C/C++ files; exit 1 lists the files that differ. CI runs the same check. |
+| `scripts/format.sh --fix` | Reformats them in place. |
+| `scripts/format.sh --changed [BASE]` | Only files changed since BASE (default `origin/main`). |
+| `scripts/format.sh PATH...` | Limits it to the given paths. |
+| `scripts/format.sh --recursive` | Also covers submodules that carry their own `.clang-format`. |
+
+Without the script: `clang-format -i FILE`, or `git clang-format` for the staged lines only.
+
+To keep code out, list files in `.clang-format-ignore`, or wrap a block in `// clang-format off` and
+`// clang-format on` with a comment saying why.
+
+`git config blame.ignoreRevsFile .git-blame-ignore-revs` hides the reformat commit from `git blame`
+(GitHub does it by itself).
+
 ## Profiling the sampling path
 
 Build with `CONFIG_EERIE_LEAP_DOMAIN_SENSOR_PROCESSING_STATS=y` and the firmware logs one line
