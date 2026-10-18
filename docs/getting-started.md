@@ -152,6 +152,26 @@ To keep code out, list files in `.clang-format-ignore`, or wrap a block in `// c
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` hides the reformat commit from `git blame`
 (GitHub does it by itself).
 
+## Linting
+
+C/C++ is checked with `.clang-tidy` (clang-tidy 23; the dev container has `clang-tidy-23`, elsewhere
+add LLVM's apt repository `deb http://apt.llvm.org/noble/ llvm-toolchain-noble-23 main` and
+`sudo apt-get install clang-tidy-23 clang-tools-23`). It reads the compile database of a
+`native_sim` build; `scripts/tidy.sh --build` makes it in `build/tidy`.
+
+| Command | Does |
+|---|---|
+| `scripts/tidy.sh` | Lints the sources of this repository with the existing database; exit 1 on any warning. |
+| `scripts/tidy.sh --build` | Builds `./app` for `native_sim` into `build/tidy` first. |
+| `scripts/tidy.sh --changed [BASE]` | Only sources changed since BASE (default `origin/main`). CI runs this on pull requests. |
+| `scripts/tidy.sh PATH...` | Limits it to the given files or directories. |
+| `scripts/tidy.sh --fix` | Applies the fixes clang-tidy offers; review `git diff` afterwards. |
+| `scripts/tidy.sh -p DIR` | Uses the database in DIR, or every one below it (a twister output directory); repeatable. |
+
+To waive a finding, name the check and give the reason: `// NOLINT(check-name): reason` at the end of
+the line, `// NOLINTNEXTLINE(check-name): reason` above it, or `NOLINTBEGIN(check-name)` and
+`NOLINTEND(check-name)` around a block. Never a bare `NOLINT` and never a wildcard.
+
 ## Profiling the sampling path
 
 Build with `CONFIG_EERIE_LEAP_DOMAIN_SENSOR_PROCESSING_STATS=y` and the firmware logs one line

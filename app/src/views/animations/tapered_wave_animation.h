@@ -15,7 +15,7 @@ using eerie_leap::subsys::cfb::Coordinate;
 class TaperedWaveAnimation : public IAnimation {
 private:
     std::shared_ptr<Cfb> cfb_;
-    float time_;
+    float time_{ 0.0F };
 
     static constexpr float THICKNESS = 14.0F;
 

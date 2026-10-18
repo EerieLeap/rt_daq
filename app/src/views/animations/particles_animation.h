@@ -14,7 +14,7 @@ using eerie_leap::subsys::cfb::Cfb;
 class ParticlesAnimation : public IAnimation {
 private:
     std::shared_ptr<Cfb> cfb_;
-    uint32_t frame_;
+    uint32_t frame_{ 0 };
     std::mt19937 rng_;
 
     void AnimateSineParticles(uint32_t frame);

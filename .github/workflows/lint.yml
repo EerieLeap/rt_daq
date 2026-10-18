@@ -1,0 +1,79 @@
+name: Lint
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clang-tidy:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: rt_daq
+          # rt_core and its nested submodules (Lua wrapper, expression engine) are part of the build.
+          submodules: recursive
+          # --changed needs the merge base with the target branch.
+          fetch-depth: 0
+
+      # native_sim builds 32-bit binaries.
+      - name: Install multilib toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-multilib g++-multilib
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Set up Zephyr
+        uses: zephyrproject-rtos/action-zephyr-setup@v1
+        with:
+          app-path: rt_daq
+          # native_sim is compiled by the host GCC; one cross toolchain is only the smallest
+          # list the action installs the SDK with.
+          toolchains: arm-zephyr-eabi
+
+      # The same major as the one the sources are checked with; apt.llvm.org pins the major only.
+      - name: Install clang-tidy 23
+        run: |
+          sudo curl -fsSL -o /etc/apt/trusted.gpg.d/apt.llvm.org.asc https://apt.llvm.org/llvm-snapshot.gpg.key
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-23 main" | sudo tee /etc/apt/sources.list.d/llvm-23.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-tidy-23 clang-tools-23
+
+      # The compile database the lint reads.
+      - name: Build for native_sim
+        working-directory: rt_daq
+        run: west build -p auto -b native_sim ./app -d build/tidy
+
+      # Any warning in a source the pull request changed fails the job.
+      - name: Lint changed sources
+        if: github.event_name == 'pull_request'
+        working-directory: rt_daq
+        run: |
+          set -o pipefail
+          scripts/tidy.sh --changed origin/${{ github.base_ref }} 2>&1 | tee tidy-report.txt
+
+      # Every source is clean: any warning fails the job.
+      - name: Lint all sources
+        if: github.event_name != 'pull_request'
+        working-directory: rt_daq
+        run: |
+          set -o pipefail
+          scripts/tidy.sh 2>&1 | tee tidy-report.txt
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: tidy-report
+          path: rt_daq/tidy-report.txt
+          if-no-files-found: ignore

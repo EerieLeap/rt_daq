@@ -20,22 +20,20 @@ struct PVector {
 class DotPathAnimation : public IAnimation {
 private:
     std::shared_ptr<Cfb> cfb_;
-    float time_;
+    float time_{ 0.0F };
 
     static constexpr int NUMBER_OF_JUMPS = 90;
-    static constexpr float DOT_COUNT = 50.0f;
+    static constexpr float DOT_COUNT = 50.0F;
 
     std::vector<PVector> positions_;
     std::vector<float> sizes_;
-    uint16_t screen_width_;
-    uint16_t screen_height_;
     std::mt19937 rng_;
 
     void DrawDot(uint16_t x, uint16_t y, float size);
     void GetPositionAndSize(float p, float& x, float& y, float& size) const;
     void GeneratePath(float x, float y, uint16_t screen_width, uint16_t screen_height, float empty_margin);
-    void ApplyJump(float& x, float& y, float jump_length, int direction);
-    void ClampToBounds(
+    static void ApplyJump(float& x, float& y, float jump_length, int direction);
+    static void ClampToBounds(
         float& x,
         float& y,
         float jump_length,
