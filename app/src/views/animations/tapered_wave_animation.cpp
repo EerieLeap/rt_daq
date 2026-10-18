@@ -26,24 +26,24 @@ void TaperedWaveAnimation::Animate() {
     bool has_prev = false;
 
     for(int i = 0; i <= screen_width; i++) {
-        float normalized_position = i / static_cast<float>(screen_width);
+        const float normalized_position = i / static_cast<float>(screen_width);
 
         // Calculate position
         // Map from center with range proportional to screen width
-        float range = screen_width * 0.9F; // 90% of screen width
-        float x = screen_width / 2.0F + (normalized_position - 0.5F) * range;
+        const float range = screen_width * 0.9F; // 90% of screen width
+        const float x = screen_width / 2.0F + (normalized_position - 0.5F) * range;
 
         // Sine wave for y position, scaled to screen height
-        float amplitude = screen_height * 0.3F; // 30% of screen height
-        float y = screen_height / 2.0F
+        const float amplitude = screen_height * 0.3F; // 30% of screen height
+        const float y = screen_height / 2.0F
             + amplitude * sinf(AnimationMathHelpers::PI * normalized_position - time_ * 0.015F);
 
         // Calculate stroke weight (thickest in the middle)
-        float weight = 1.0F + THICKNESS * normalized_position * (1.0F - normalized_position);
+        const float weight = 1.0F + THICKNESS * normalized_position * (1.0F - normalized_position);
 
         // Convert to screen coordinates
-        uint16_t screen_x = static_cast<uint16_t>(x + 0.5F);
-        uint16_t screen_y = static_cast<uint16_t>(y + 0.5F);
+        const uint16_t screen_x = static_cast<uint16_t>(x + 0.5F);
+        const uint16_t screen_y = static_cast<uint16_t>(y + 0.5F);
 
         // Bounds check
         if(screen_x < screen_width && screen_y < screen_height) {
@@ -70,12 +70,12 @@ void TaperedWaveAnimation::DrawThickLine(Coordinate p1, Coordinate p2, float thi
     }
 
     // For thicker lines, draw multiple parallel lines
-    int half_thickness = static_cast<int>(thickness / 2.0F);
+    const int half_thickness = static_cast<int>(thickness / 2.0F);
 
     // Calculate perpendicular direction
-    int dx = p2.x - p1.x;
-    int dy = p2.y - p1.y;
-    float length = sqrtf(dx * dx + dy * dy);
+    const int dx = p2.x - p1.x;
+    const int dy = p2.y - p1.y;
+    const float length = sqrtf(dx * dx + dy * dy);
 
     if(length < 0.1F) {
         cfb_->DrawPoint(p1);
@@ -83,8 +83,8 @@ void TaperedWaveAnimation::DrawThickLine(Coordinate p1, Coordinate p2, float thi
     }
 
     // Normalized perpendicular vector
-    float perp_x = -dy / length;
-    float perp_y = dx / length;
+    const float perp_x = -dy / length;
+    const float perp_y = dx / length;
 
     // Draw multiple lines to create thickness
     for(int offset = -half_thickness; offset <= half_thickness; offset++) {

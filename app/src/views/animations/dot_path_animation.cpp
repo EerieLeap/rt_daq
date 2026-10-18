@@ -20,8 +20,8 @@ void DotPathAnimation::Initialize() {
     const float empty_margin = std::min(screen_width, screen_height) * 0.1F;
 
     // Generate initial position
-    float x = GenerateRandomPosition(empty_margin, screen_width - empty_margin);
-    float y = GenerateRandomPosition(empty_margin, screen_height - empty_margin);
+    const float x = GenerateRandomPosition(empty_margin, screen_width - empty_margin);
+    const float y = GenerateRandomPosition(empty_margin, screen_height - empty_margin);
 
     positions_.push_back({ x, y });
     sizes_.push_back(0.0F); // Start with size 0

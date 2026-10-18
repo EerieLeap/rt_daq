@@ -136,7 +136,7 @@ int main(void) {
         }
     }
 
-    auto display_controller = std::make_shared<DisplayController>(cfb);
+    const auto display_controller = std::make_shared<DisplayController>(cfb);
     // NOTE: The display runs at priority 6, below sensor processing (5 in prj.conf).
     // At equal priority it delayed processing wakes by up to ~5ms (ADC plan, sections 2.7, 6.7).
     display_controller->Initialize();
@@ -155,18 +155,18 @@ int main(void) {
         // sd_fs_service->SdMonitorStart();
     }
 
-    auto fs_service = std::make_shared<FsService>(DtFs::GetInternalFsMp());
+    const auto fs_service = std::make_shared<FsService>(DtFs::GetInternalFsMp());
     if(!fs_service->Initialize()) {
         LOG_ERR("Failed to initialize File System.");
         return -1;
     }
 
     // Shared: controllers register the asset kinds they own, and the management controller serves them.
-    auto assets_manager = std::make_shared<AssetsManager>();
+    const auto assets_manager = std::make_shared<AssetsManager>();
 
-    auto rtc_provider = std::make_shared<RtcProvider>();
-    auto boot_elapsed_time_provider = std::make_shared<BootElapsedTimeProvider>();
-    auto time_service = std::make_shared<TimeService>(rtc_provider, boot_elapsed_time_provider);
+    const auto rtc_provider = std::make_shared<RtcProvider>();
+    const auto boot_elapsed_time_provider = std::make_shared<BootElapsedTimeProvider>();
+    const auto time_service = std::make_shared<TimeService>(rtc_provider, boot_elapsed_time_provider);
     time_service->Initialize();
 
     // Every start and stop of the log writer runs here, whatever requested it (the CDMP command, a
@@ -174,9 +174,9 @@ int main(void) {
     // processing and, before LoggingController::Start() or for a start requested after an update,
     // the writer. A start builds the logger and writes the MDF header through FatFs:
     // 5728 of 6144 bytes measured on the PM board (logging plan section 6.5), too close to keep.
-    int config_work_queue_stack_size = 8192;
-    int config_work_queue_priority = 5;
-    auto config_work_queue_thread = std::make_shared<WorkQueueThread>(
+    const int config_work_queue_stack_size = 8192;
+    const int config_work_queue_priority = 5;
+    const auto config_work_queue_thread = std::make_shared<WorkQueueThread>(
         "config_work_queue", config_work_queue_stack_size, config_work_queue_priority
     );
     if(!config_work_queue_thread->Initialize()) {
@@ -187,16 +187,16 @@ int main(void) {
     // Before anything can publish a logging status.
     display_controller->FollowLoggingStatus(config_work_queue_thread);
 
-    auto system_controller = std::make_shared<SystemController>(fs_service, config_work_queue_thread);
+    const auto system_controller = std::make_shared<SystemController>(fs_service, config_work_queue_thread);
     if(system_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the system controller.");
 
-    auto configuration_service = std::make_shared<ConfigurationService>();
+    const auto configuration_service = std::make_shared<ConfigurationService>();
     configuration_service->RegisterCborConfigurationManager(
         ConfigurationService::Type::System, system_controller->GetConfigurationManager()
     );
 
-    auto adc_controller = std::make_shared<AdcController>(
+    const auto adc_controller = std::make_shared<AdcController>(
         fs_service, config_work_queue_thread, configuration_service, time_service
     );
     if(adc_controller->Initialize() != 0) {
@@ -210,7 +210,7 @@ int main(void) {
         gpio = nullptr;
     }
 
-    auto canbus_controller = std::make_shared<CanbusController>(
+    const auto canbus_controller = std::make_shared<CanbusController>(
         fs_service, config_work_queue_thread, configuration_service, sd_fs_service, assets_manager
     );
     // TODO: For test purposes only
@@ -219,9 +219,9 @@ int main(void) {
         LOG_ERR("Failed to initialize the CANBus controller.");
     canbus_controller->Start();
 
-    auto sensor_readings_frame = std::make_shared<SensorReadingsFrame>();
+    const auto sensor_readings_frame = std::make_shared<SensorReadingsFrame>();
 
-    auto sensors_controller = std::make_shared<SensorsController>(
+    const auto sensors_controller = std::make_shared<SensorsController>(
         fs_service, config_work_queue_thread, configuration_service, time_service, sensor_readings_frame,
         canbus_controller->GetService(), gpio, adc_controller->GetManager(), adc_controller->GetConfigurationManager(),
         sd_fs_service, assets_manager
@@ -247,7 +247,7 @@ int main(void) {
 
     // One per unit, on the shared frame. It publishes only what a subscriber accepts: on this unit the
     // sensors the logging triggers bind to. The frame stays empty until SensorsController::Start().
-    auto sensor_events_publisher = std::make_shared<SensorEventsPublisher>(sensor_readings_frame);
+    const auto sensor_events_publisher = std::make_shared<SensorEventsPublisher>(sensor_readings_frame);
     if(!sensor_events_publisher->Initialize() || !sensor_events_publisher->Start())
         LOG_ERR("Failed to start the sensor events publisher.");
 
@@ -310,7 +310,7 @@ int main(void) {
 
     // Constructed after every controller that registers a configuration manager.
     const auto system_configuration = system_controller->GetConfigurationManager()->Get();
-    auto management_controller = std::make_shared<ManagementController>(
+    const auto management_controller = std::make_shared<ManagementController>(
         configuration_service, config_work_queue_thread,
         canbus_com_service != nullptr ? canbus_com_service->GetNetworkInfo() : nullptr,
         system_configuration != nullptr ? system_configuration->build_number : 0, sensors_controller->GetCapabilities(),
@@ -319,7 +319,7 @@ int main(void) {
     if(management_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the management controller.");
 
-    auto canbus_scheduler_service = std::make_shared<CanbusSchedulerService>(
+    const auto canbus_scheduler_service = std::make_shared<CanbusSchedulerService>(
         canbus_controller->GetConfigurationManager(), canbus_controller->GetService(), sensor_readings_frame
     );
     canbus_scheduler_service->Initialize();
@@ -349,7 +349,7 @@ int main(void) {
 }
 
 void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus_configuration_manager) {
-    auto canbus_configuration = make_shared_pmr<CanbusConfiguration>(Mrm::GetExtPmr());
+    const auto canbus_configuration = make_shared_pmr<CanbusConfiguration>(Mrm::GetExtPmr());
     canbus_configuration->com_configuration.bus_channel = 0;
 
     // ============================================
@@ -430,7 +430,7 @@ void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus
     // canbus_channel_configuration_0.message_configurations.emplace_back(std::move(message_configuration_0));
 
     for(int i = 0; i < 3; i++) {
-        auto message_configuration = make_shared_pmr<CanMessageConfiguration>(Mrm::GetExtPmr());
+        const auto message_configuration = make_shared_pmr<CanMessageConfiguration>(Mrm::GetExtPmr());
         message_configuration->frame_id = 100 + i;
         message_configuration->name = "EL_FRAME_" + std::to_string(i);
         message_configuration->message_size = 8;
@@ -462,7 +462,7 @@ void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus
     canbus_channel_configuration_1.bus_channel = 1;
     canbus_channel_configuration_1.bitrate = 1'000'000;
 
-    auto message_configuration_1_0 = make_shared_pmr<CanMessageConfiguration>(Mrm::GetExtPmr());
+    const auto message_configuration_1_0 = make_shared_pmr<CanMessageConfiguration>(Mrm::GetExtPmr());
     message_configuration_1_0->name = "EL_FRAME_1_0";
     message_configuration_1_0->message_size = 8;
     message_configuration_1_0->frame_id = 790;
@@ -486,7 +486,7 @@ void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus
 void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager) {
     // Test Sensors
 
-    auto sensor_1 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_1");
+    const auto sensor_1 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_1");
 
     sensor_1->metadata.name = "Sensor 1";
     sensor_1->metadata.unit = "km/h";
@@ -500,7 +500,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_1->configuration.calibration_table = { { 0.0, 0.0 }, { 5.0, 100.0 } };
     // sensor_1->configuration.expression = "x * 2 + sensor_2 + 1";
 
-    auto sensor_2 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_2");
+    const auto sensor_2 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_2");
 
     sensor_2->metadata.name = "Sensor 2";
     sensor_2->metadata.unit = "km/h";
@@ -513,7 +513,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_2->configuration.calibration_table = { { 0.0, 90.0 }, { 5.0, 100.0 } };
     sensor_2->configuration.expression = "x * 4 + 1.6";
 
-    auto sensor_3 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_3");
+    const auto sensor_3 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_3");
 
     sensor_3->metadata.name = "Sensor 3";
     sensor_3->metadata.unit = "km/h";
@@ -523,7 +523,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_3->configuration.sampling_rate_ms = 2000;
     sensor_3->configuration.expression = "2 + 8.34";
 
-    auto sensor_4 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_4");
+    const auto sensor_4 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_4");
 
     sensor_4->metadata.name = "Sensor 4";
     sensor_4->metadata.unit = "";
@@ -533,7 +533,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_4->configuration.channel = 1;
     sensor_4->configuration.sampling_rate_ms = 1000;
 
-    auto sensor_5 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_5");
+    const auto sensor_5 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_5");
 
     sensor_5->metadata.name = "Sensor 5";
     sensor_5->metadata.unit = "";
@@ -543,7 +543,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_5->configuration.sampling_rate_ms = 1000;
     sensor_5->configuration.expression = "sensor_1 < 400";
 
-    auto sensor_6 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_6");
+    const auto sensor_6 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_6");
 
     sensor_6->metadata.name = "Sensor 6";
     sensor_6->metadata.unit = "";
@@ -552,7 +552,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_6->configuration.type = SensorType::CANBUS_ANALOG;
     sensor_6->configuration.canbus_source = make_unique_pmr<CanbusSource>(Mrm::GetExtPmr(), 1, 790, "RPM");
 
-    auto sensor_7 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_7");
+    const auto sensor_7 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_7");
 
     sensor_7->metadata.name = "Sensor 7";
     sensor_7->metadata.unit = "";
@@ -561,7 +561,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_7->configuration.type = SensorType::CANBUS_RAW;
     sensor_7->configuration.canbus_source = make_unique_pmr<CanbusSource>(Mrm::GetExtPmr(), 0, 790);
 
-    auto sensor_8 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_8");
+    const auto sensor_8 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_8");
 
     sensor_8->metadata.name = "Sensor 8";
     sensor_8->metadata.unit = "";
@@ -572,7 +572,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_8->configuration.sampling_rate_ms = 500;
     sensor_8->configuration.expression = "x * 2";
 
-    std::vector<std::shared_ptr<Sensor>> sensors = { sensor_1, sensor_2, sensor_3, sensor_4, sensor_5, sensor_6,
+    const std::vector<std::shared_ptr<Sensor>> sensors = { sensor_1, sensor_2, sensor_3, sensor_4, sensor_5, sensor_6,
         sensor_7, sensor_8 };
 
     // std::vector<std::shared_ptr<Sensor>> sensors;
@@ -603,7 +603,7 @@ void SetupLoggingConfiguration(
     std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager
 ) {
 
-    auto sensors = sensors_configuration_manager->Get();
+    const auto sensors = sensors_configuration_manager->Get();
 
     // It indexes the test sensors; a unit whose stored sensors configuration did not decode has none.
     if(sensors == nullptr || sensors->size() < 7) {
@@ -614,22 +614,22 @@ void SetupLoggingConfiguration(
     auto logging_configuration = make_unique_pmr<LoggingConfiguration>(Mrm::GetExtPmr());
     logging_configuration->logging_interval_ms = 100;
 
-    SensorLoggingConfiguration sensor_logging_config_1 = {
+    const SensorLoggingConfiguration sensor_logging_config_1 = {
         .is_enabled = true, .log_raw_value = false, .log_only_new_data = false
     };
     logging_configuration->sensor_configurations.insert({ sensors->at(0)->id_hash, sensor_logging_config_1 });
 
-    SensorLoggingConfiguration sensor_logging_config_2 = {
+    const SensorLoggingConfiguration sensor_logging_config_2 = {
         .is_enabled = true, .log_raw_value = true, .log_only_new_data = false
     };
     logging_configuration->sensor_configurations.insert({ sensors->at(1)->id_hash, sensor_logging_config_2 });
 
-    SensorLoggingConfiguration sensor_logging_config_6 = {
+    const SensorLoggingConfiguration sensor_logging_config_6 = {
         .is_enabled = true, .log_raw_value = true, .log_only_new_data = false
     };
     logging_configuration->sensor_configurations.insert({ sensors->at(5)->id_hash, sensor_logging_config_6 });
 
-    SensorLoggingConfiguration sensor_logging_config_7 = {
+    const SensorLoggingConfiguration sensor_logging_config_7 = {
         .is_enabled = true, .log_raw_value = true, .log_only_new_data = true
     };
     logging_configuration->sensor_configurations.insert({ sensors->at(6)->id_hash, sensor_logging_config_7 });

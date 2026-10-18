@@ -19,10 +19,10 @@ void WaveLinesAnimation::Animate() {
     cfb_->Clear();
 
     // Calculate normalized time (0 to 1 over 100 frames, looping)
-    float time = fmodf(frame_ / 100.0F, 1.0F);
+    const float time = fmodf(frame_ / 100.0F, 1.0F);
 
     for(int line = 0; line < LINES_COUNT; line++) {
-        float phase_offset = line * 0.15F;
+        const float phase_offset = line * 0.15F;
         DrawWaveLine(time + phase_offset, line);
     }
 
@@ -37,32 +37,32 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
     bool has_prev = false;
 
     // Calculate y position for this line
-    float y_center = (line_index + 1.0F) * screen_height / (LINES_COUNT + 1.0F);
+    const float y_center = (line_index + 1.0F) * screen_height / (LINES_COUNT + 1.0F);
 
     // Calculate maximum amplitude so lines don't overlap
-    float max_amplitude = screen_height * 1.2F / (2.0F * (LINES_COUNT + 1.0F));
+    const float max_amplitude = screen_height * 1.2F / (2.0F * (LINES_COUNT + 1.0F));
 
     for(int i = 0; i < screen_width; i++) {
-        float normalized_position = static_cast<float>(i) / static_cast<float>(screen_width - 1);
+        const float normalized_position = static_cast<float>(i) / static_cast<float>(screen_width - 1);
 
         // Base position - horizontal line at calculated center
-        float x = normalized_position * screen_width;
+        const float x = normalized_position * screen_width;
         float y = y_center;
 
         // Calculate distance from center for radial effect
-        float center_x = screen_width / 2.0F;
-        float center_y = screen_height / 2.0F;
-        float dist = sqrtf((x - center_x) * (x - center_x) + (y - center_y) * (y - center_y));
+        const float center_x = screen_width / 2.0F;
+        const float center_y = screen_height / 2.0F;
+        const float dist = sqrtf((x - center_x) * (x - center_x) + (y - center_y) * (y - center_y));
 
         // Amplitude modulation based on time and distance
-        float cos_val = cosf(AnimationMathHelpers::PI * 2.0F * time - 0.02F * dist) * 1.1F;
+        const float cos_val = cosf(AnimationMathHelpers::PI * 2.0F * time - 0.02F * dist) * 1.1F;
         float amplitude = (cos_val + 1.0F) / 2.0F; // Map from [-1,1] to [0,1]
 
         // Apply distance-based exponential decay
         amplitude *= expf(-0.004F * dist);
 
         // Wave displacement with easing - scale to use appropriate amplitude
-        float wave_phase = AnimationMathHelpers::PI * 2.0F * WAVE_COUNT * normalized_position;
+        const float wave_phase = AnimationMathHelpers::PI * 2.0F * WAVE_COUNT * normalized_position;
         // float sq_amp = amplitude * amplitude;
 
         // x += AnimationMathHelpers::EaseWithGamma(sq_amp, 3.0f) * (screen_width * 0.1f) * sinf(wave_phase);
@@ -70,8 +70,8 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
             * cosf(wave_phase);
 
         // Convert to screen coordinates
-        uint16_t screen_x = static_cast<uint16_t>(x + 0.5F);
-        uint16_t screen_y = static_cast<uint16_t>(y + 0.5F);
+        const uint16_t screen_x = static_cast<uint16_t>(x + 0.5F);
+        const uint16_t screen_y = static_cast<uint16_t>(y + 0.5F);
 
         // Bounds check
         if(screen_x < screen_width && screen_y < screen_height) {
