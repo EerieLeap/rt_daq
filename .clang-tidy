@@ -37,6 +37,7 @@ Checks: >
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -cppcoreguidelines-pro-type-cstyle-cast,
   -cppcoreguidelines-pro-type-vararg,
+  -misc-use-anonymous-namespace,
   -bugprone-signed-bitwise,
   -readability-simplify-boolean-expr,
 
@@ -73,8 +74,9 @@ Checks: >
 #    variables-in-classes; plus bugprone-easily-swappable-parameters, which flags most multi-argument APIs,
 #    and the analyzer's EnumCastOutOfRange, which reports every combination of a bitmask enum's flags.
 # 2. Fire inside Zephyr macros (LOG_*, LOG_MODULE_REGISTER, K_MSEC, IS_ENABLED): do { } while (0), C casts,
-#    printf-style varargs, string decay and the signed flag arithmetic of the logging macros are how those
-#    macros work, not choices made in this code.
+#    printf-style varargs, string decay, the signed flag arithmetic of the logging macros and the static
+#    variables LOG_MODULE_REGISTER defines (misc-use-anonymous-namespace) are how those macros work, not
+#    choices made in this code.
 # 3. Embedded and Zephyr idioms: C arrays and unions for Zephyr/zcbor structures, pointer arithmetic on
 #    frame buffers, operator[] in hot paths, #define for Kconfig and devicetree, enums sized by the
 #    event bus concept (uint32_t), GCC as the only compiler, no gsl::owner.
