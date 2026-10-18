@@ -26,7 +26,6 @@ using eerie_leap::subsys::threading::WorkQueueTaskResult;
 
 DisplayController::DisplayController(std::shared_ptr<Cfb> cfb) :
     cfb_(std::move(cfb)),
-    ,
     guard_(std::make_shared<DispatchGuard>(this)) {}
 
 DisplayController::~DisplayController() {

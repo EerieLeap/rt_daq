@@ -23,7 +23,6 @@ static Dot dots[NUM_DOTS];
 
 ParticlesAnimation::ParticlesAnimation(std::shared_ptr<Cfb> cfb) :
     cfb_(std::move(cfb)),
-    ,
     rng_(1234) {}
 
 void ParticlesAnimation::Initialize() {

@@ -10,8 +10,7 @@ using namespace eerie_leap::views::animations::utilities;
 using namespace eerie_leap::subsys::cfb;
 
 WaveLinesAnimation::WaveLinesAnimation(std::shared_ptr<Cfb> cfb) :
-    cfb_(std::move(cfb)),
-{}
+    cfb_(std::move(cfb)) {}
 
 void WaveLinesAnimation::Initialize() {
     frame_ = 0;

@@ -10,8 +10,7 @@ namespace eerie_leap::views::animations {
 using namespace eerie_leap::views::animations::utilities;
 
 TaperedWaveAnimation::TaperedWaveAnimation(std::shared_ptr<Cfb> cfb) :
-    cfb_(std::move(cfb)),
-{}
+    cfb_(std::move(cfb)) {}
 
 void TaperedWaveAnimation::Initialize() {
     time_ = 0.0F;
