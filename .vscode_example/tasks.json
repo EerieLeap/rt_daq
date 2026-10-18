@@ -151,6 +151,39 @@
             }
         },
         {
+            "label": "Lint: build database",
+            "type": "shell",
+            "command": "scripts/tidy.sh --build",
+            "group": "none",
+            "problemMatcher": [],
+            "detail": "Build the app for native_sim into build/tidy, then lint every source with clang-tidy",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Lint: changed",
+            "type": "shell",
+            "command": "scripts/tidy.sh --changed",
+            "group": "none",
+            "problemMatcher": [],
+            "detail": "Lint only the sources changed since origin/main",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Lint: all",
+            "type": "shell",
+            "command": "scripts/tidy.sh",
+            "group": "none",
+            "problemMatcher": [],
+            "detail": "Lint every source with the existing build/tidy database",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
             "label": "Clean Build",
             "type": "shell",
             "command": "rm -rf ./build",
