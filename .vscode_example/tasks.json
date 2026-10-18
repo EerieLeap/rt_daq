@@ -118,6 +118,39 @@
             "detail": "Run rt_core tests using twister (-j caps parallel builds and QEMU instances)"
         },
         {
+            "label": "Format: check",
+            "type": "shell",
+            "command": "scripts/format.sh",
+            "group": "none",
+            "problemMatcher": [],
+            "detail": "Check the tracked C/C++ files against .clang-format",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Format: check changed",
+            "type": "shell",
+            "command": "scripts/format.sh --changed",
+            "group": "none",
+            "problemMatcher": [],
+            "detail": "Check only the C/C++ files changed since origin/main",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Format: fix",
+            "type": "shell",
+            "command": "scripts/format.sh --fix",
+            "group": "none",
+            "problemMatcher": [],
+            "detail": "Reformat the tracked C/C++ files with clang-format",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
             "label": "Clean Build",
             "type": "shell",
             "command": "rm -rf ./build",

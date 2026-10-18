@@ -1,16 +1,18 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <algorithm>
 
-#include "views/animations/utilities/animation_math_helpers.h"
 #include "dot_path_animation.h"
+#include "views/animations/utilities/animation_math_helpers.h"
 
 namespace eerie_leap::views::animations {
 
 using namespace eerie_leap::views::animations::utilities;
 
-DotPathAnimation::DotPathAnimation(std::shared_ptr<Cfb> cfb)
-    : cfb_(std::move(cfb)), time_(0.0F), rng_(1234) {}
+DotPathAnimation::DotPathAnimation(std::shared_ptr<Cfb> cfb) :
+    cfb_(std::move(cfb)),
+    time_(0.0F),
+    rng_(1234) {}
 
 void DotPathAnimation::Initialize() {
     const uint16_t screen_width = cfb_->GetXRes();
@@ -21,7 +23,7 @@ void DotPathAnimation::Initialize() {
     float x = GenerateRandomPosition(empty_margin, screen_width - empty_margin);
     float y = GenerateRandomPosition(empty_margin, screen_height - empty_margin);
 
-    positions_.push_back({x, y});
+    positions_.push_back({ x, y });
     sizes_.push_back(0.0F); // Start with size 0
 
     // Generate path
@@ -77,14 +79,20 @@ void DotPathAnimation::GetPositionAndSize(float p, float& x, float& y, float& si
 
 void DotPathAnimation::DrawDot(uint16_t x, uint16_t y, float size) {
     if(size <= 1.0F) {
-        cfb_->DrawPoint({x, y});
+        cfb_->DrawPoint({ x, y });
     } else {
         const int radius = static_cast<int>((size / 2.0F) + 0.5F);
-        cfb_->DrawCircle({x, y}, radius);
+        cfb_->DrawCircle({ x, y }, radius);
     }
 }
 
-void DotPathAnimation::GeneratePath(float x, float y, uint16_t screen_width, uint16_t screen_height, float empty_margin) {
+void DotPathAnimation::GeneratePath(
+    float x,
+    float y,
+    uint16_t screen_width,
+    uint16_t screen_height,
+    float empty_margin
+) {
     std::uniform_real_distribution<float> jump_dist(10.0F, 40.0F);
     std::uniform_int_distribution<int> direction_dist(0, 7);
     std::uniform_real_distribution<float> size_dist(0.5F, 2.5F);
@@ -96,7 +104,7 @@ void DotPathAnimation::GeneratePath(float x, float y, uint16_t screen_width, uin
         ApplyJump(x, y, jump_length, direction);
         ClampToBounds(x, y, jump_length, screen_width, screen_height, empty_margin);
 
-        positions_.push_back({x, y});
+        positions_.push_back({ x, y });
 
         // Last dot has size 0, others are random
         const float size = (i == NUMBER_OF_JUMPS - 1) ? 0.0F : size_dist(rng_);
@@ -107,21 +115,46 @@ void DotPathAnimation::GeneratePath(float x, float y, uint16_t screen_width, uin
 void DotPathAnimation::ApplyJump(float& x, float& y, float jump_length, int direction) {
     constexpr float DIAGONAL = 0.707106781F; // 1 / sqrt(2)
 
-    switch (direction) {
-        case 0: x += jump_length; break;
-        case 1: x -= jump_length; break;
-        case 2: y += jump_length; break;
-        case 3: y -= jump_length; break;
-        case 4: x += jump_length * DIAGONAL; y += jump_length * DIAGONAL; break;
-        case 5: x -= jump_length * DIAGONAL; y += jump_length * DIAGONAL; break;
-        case 6: x += jump_length * DIAGONAL; y -= jump_length * DIAGONAL; break;
-        case 7: x -= jump_length * DIAGONAL; y -= jump_length * DIAGONAL; break;
+    switch(direction) {
+        case 0:
+            x += jump_length;
+            break;
+        case 1:
+            x -= jump_length;
+            break;
+        case 2:
+            y += jump_length;
+            break;
+        case 3:
+            y -= jump_length;
+            break;
+        case 4:
+            x += jump_length * DIAGONAL;
+            y += jump_length * DIAGONAL;
+            break;
+        case 5:
+            x -= jump_length * DIAGONAL;
+            y += jump_length * DIAGONAL;
+            break;
+        case 6:
+            x += jump_length * DIAGONAL;
+            y -= jump_length * DIAGONAL;
+            break;
+        case 7:
+            x -= jump_length * DIAGONAL;
+            y -= jump_length * DIAGONAL;
+            break;
     }
 }
 
-void DotPathAnimation::ClampToBounds(float& x, float& y, float jump_length,
-                                      uint16_t screen_width, uint16_t screen_height,
-                                      float empty_margin) {
+void DotPathAnimation::ClampToBounds(
+    float& x,
+    float& y,
+    float jump_length,
+    uint16_t screen_width,
+    uint16_t screen_height,
+    float empty_margin
+) {
     if(x > screen_width - empty_margin)
         x -= 2 * jump_length;
     else if(x < empty_margin)

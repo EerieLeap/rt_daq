@@ -1,53 +1,53 @@
 #include <memory>
 
+#include <eerie_memory.hpp>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <eerie_memory.hpp>
 
-#include "utilities/memory/memory_resource_manager.h"
 #include "utilities/dev_tools/system_info.h"
+#include "utilities/memory/memory_resource_manager.h"
 
 #include "subsys/device_tree/dt_configurator.h"
-#include "subsys/device_tree/dt_gpio.h"
-#include "subsys/device_tree/dt_fs.h"
 #include "subsys/device_tree/dt_display.h"
+#include "subsys/device_tree/dt_fs.h"
+#include "subsys/device_tree/dt_gpio.h"
 
 #include "subsys/assets/assets_manager.h"
+#include "subsys/cfb/cfb.h"
 #include "subsys/fs/services/fs_service.h"
 #include "subsys/fs/services/sdmmc_service.h"
 #include "subsys/gpio/gpio_factory.hpp"
-#include "subsys/cfb/cfb.h"
 #include "subsys/threading/work_queue_thread.h"
-#include "subsys/time/time_service.h"
-#include "subsys/time/rtc_provider.h"
 #include "subsys/time/boot_elapsed_time_provider.h"
+#include "subsys/time/rtc_provider.h"
+#include "subsys/time/time_service.h"
 
 #include "configuration/services/cbor_configuration_service.h"
 
+#include "domain/canbus_domain/configuration/canbus_configuration_manager.h"
+#include "domain/canbus_domain/services/canbus_scheduler_service.h"
 #include "domain/configuration_domain/services/configuration_service.h"
-#include "domain/system_domain/configuration/system_configuration_manager.h"
-#include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
-#include "domain/sensor_domain/services/sensor_events_publisher.h"
-#include "domain/sensor_domain/utilities/sensor_readings_frame.hpp"
 #include "domain/logging_domain/configuration/logging_configuration_manager.h"
 #include "domain/logging_domain/control/canbus_com_logging_command_sender.h"
 #include "domain/logging_domain/control/configuration_update_logging_stop.h"
-#include "domain/canbus_domain/configuration/canbus_configuration_manager.h"
-#include "domain/canbus_domain/services/canbus_scheduler_service.h"
+#include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
+#include "domain/sensor_domain/services/sensor_events_publisher.h"
+#include "domain/sensor_domain/utilities/sensor_readings_frame.hpp"
+#include "domain/system_domain/configuration/system_configuration_manager.h"
 
-#include "controllers/system_controller.h"
 #include "controllers/adc_controller.h"
 #include "controllers/canbus_controller.h"
-#include "controllers/sensors_controller.h"
 #include "controllers/logging_controller.h"
+#include "controllers/sensors_controller.h"
+#include "controllers/system_controller.h"
 #ifdef CONFIG_APP_LOGGING_SHELL
-#include "shell/logging_shell_bridge.h"
+    #include "shell/logging_shell_bridge.h"
 #endif
 #ifdef CONFIG_APP_SENSOR_SHELL
-#include "shell/sensor_shell_bridge.h"
+    #include "shell/sensor_shell_bridge.h"
 #endif
-#include "controllers/management_controller.h"
 #include "controllers/display_controller.h"
+#include "controllers/management_controller.h"
 
 #include "event_bus/event_channels.h"
 
@@ -100,8 +100,10 @@ constexpr uint32_t SLEEP_TIME_MS = 10000;
 
 void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus_configuration_manager);
 void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager);
-void SetupLoggingConfiguration(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager,
-    std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager);
+void SetupLoggingConfiguration(
+    std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager,
+    std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager
+);
 
 // NOTE: ADC reading timing for ESP32S3:
 // Each sample adds up to about 25us to the reading time
@@ -119,12 +121,9 @@ int main(void) {
     InitializeEventChannels();
 
     DtConfigurator::Initialize(
-        DtFeature::INTERNAL_FS
-        | DtFeature::SD_FS
-        | DtFeature::GPIO
-        | DtFeature::ADC
-        | DtFeature::DISPLAY
-        | DtFeature::CANBUS);
+        DtFeature::INTERNAL_FS | DtFeature::SD_FS | DtFeature::GPIO | DtFeature::ADC | DtFeature::DISPLAY
+        | DtFeature::CANBUS
+    );
 
     std::shared_ptr<Cfb> cfb = nullptr;
 
@@ -178,9 +177,8 @@ int main(void) {
     int config_work_queue_stack_size = 8192;
     int config_work_queue_priority = 5;
     auto config_work_queue_thread = std::make_shared<WorkQueueThread>(
-        "config_work_queue",
-        config_work_queue_stack_size,
-        config_work_queue_priority);
+        "config_work_queue", config_work_queue_stack_size, config_work_queue_priority
+    );
     if(!config_work_queue_thread->Initialize()) {
         LOG_ERR("Failed to initialize the configuration work queue.");
         return -1;
@@ -189,20 +187,18 @@ int main(void) {
     // Before anything can publish a logging status.
     display_controller->FollowLoggingStatus(config_work_queue_thread);
 
-    auto system_controller = std::make_shared<SystemController>(
-        fs_service, config_work_queue_thread);
+    auto system_controller = std::make_shared<SystemController>(fs_service, config_work_queue_thread);
     if(system_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the system controller.");
 
     auto configuration_service = std::make_shared<ConfigurationService>();
     configuration_service->RegisterCborConfigurationManager(
-        ConfigurationService::Type::System, system_controller->GetConfigurationManager());
+        ConfigurationService::Type::System, system_controller->GetConfigurationManager()
+    );
 
     auto adc_controller = std::make_shared<AdcController>(
-        fs_service,
-        config_work_queue_thread,
-        configuration_service,
-        time_service);
+        fs_service, config_work_queue_thread, configuration_service, time_service
+    );
     if(adc_controller->Initialize() != 0) {
         LOG_ERR("Failed to initialize the ADC controller.");
         return -1;
@@ -215,11 +211,8 @@ int main(void) {
     }
 
     auto canbus_controller = std::make_shared<CanbusController>(
-        fs_service,
-        config_work_queue_thread,
-        configuration_service,
-        sd_fs_service,
-        assets_manager);
+        fs_service, config_work_queue_thread, configuration_service, sd_fs_service, assets_manager
+    );
     // TODO: For test purposes only
     // if(canbus_controller->Initialize(SetupCanbusConfiguration) != 0)
     if(canbus_controller->Initialize() != 0)
@@ -229,17 +222,10 @@ int main(void) {
     auto sensor_readings_frame = std::make_shared<SensorReadingsFrame>();
 
     auto sensors_controller = std::make_shared<SensorsController>(
-        fs_service,
-        config_work_queue_thread,
-        configuration_service,
-        time_service,
-        sensor_readings_frame,
-        canbus_controller->GetService(),
-        gpio,
-        adc_controller->GetManager(),
-        adc_controller->GetConfigurationManager(),
-        sd_fs_service,
-        assets_manager);
+        fs_service, config_work_queue_thread, configuration_service, time_service, sensor_readings_frame,
+        canbus_controller->GetService(), gpio, adc_controller->GetManager(), adc_controller->GetConfigurationManager(),
+        sd_fs_service, assets_manager
+    );
     // TODO: For test purposes only
     // if(sensors_controller->Initialize(SetupTestSensors) != 0)
     if(sensors_controller->Initialize() != 0)
@@ -252,11 +238,9 @@ int main(void) {
     // Independent of the logging controller: a board without an SD card can still drive CAN messages
     // and other units' triggers.
     eerie_leap::shell::AttachSensorShell(
-        sensor_readings_frame,
-        sensors_controller->GetConfigurationManager(),
-        sensors_controller->GetProcessingService(),
-        time_service,
-        config_work_queue_thread);
+        sensor_readings_frame, sensors_controller->GetConfigurationManager(),
+        sensors_controller->GetProcessingService(), time_service, config_work_queue_thread
+    );
 #endif
 
     const auto canbus_com_service = canbus_controller->GetComService();
@@ -274,17 +258,10 @@ int main(void) {
     std::unique_ptr<ConfigurationUpdateLoggingStop> configuration_update_logging_stop;
     if(sd_fs_service != nullptr) {
         auto controller = std::make_shared<LoggingController>(
-            fs_service,
-            config_work_queue_thread,
-            configuration_service,
-            sensors_controller->GetConfigurationManager(),
-            canbus_com_service,
-            sensor_events_publisher,
-            sd_fs_service,
-            time_service,
-            sensor_readings_frame,
-            "rt_daq",
-            assets_manager);
+            fs_service, config_work_queue_thread, configuration_service, sensors_controller->GetConfigurationManager(),
+            canbus_com_service, sensor_events_publisher, sd_fs_service, time_service, sensor_readings_frame, "rt_daq",
+            assets_manager
+        );
         // A failed controller has torn itself down and registered nothing; dropping it here leaves
         // nothing behind, and nothing below is wired to it.
         if(controller->Initialize() == 0)
@@ -305,14 +282,15 @@ int main(void) {
 
 #ifdef CONFIG_APP_LOGGING_SHELL
         eerie_leap::shell::AttachLoggingShell(
-            logging_controller,
-            sensors_controller->GetConfigurationManager(),
-            config_work_queue_thread);
+            logging_controller, sensors_controller->GetConfigurationManager(), config_work_queue_thread
+        );
 #endif
 
         // TODO: For test purposes only
 #ifdef CONFIG_APP_SETUP_LOGGING_CONFIGURATION
-        SetupLoggingConfiguration(sensors_controller->GetConfigurationManager(), logging_controller->GetConfigurationManager());
+        SetupLoggingConfiguration(
+            sensors_controller->GetConfigurationManager(), logging_controller->GetConfigurationManager()
+        );
 #endif
 
         // Last of the boot's stores: from here on a configuration stored on this unit stops logging on
@@ -323,10 +301,9 @@ int main(void) {
         // No logging here, but what this unit measures and sends goes into the files of the units that
         // log, so a configuration stored on it stops their logging too.
         configuration_update_logging_stop = std::make_unique<ConfigurationUpdateLoggingStop>(
-            configuration_service,
-            config_work_queue_thread,
-            nullptr,
-            std::make_shared<CanbusComLoggingCommandSender>(canbus_com_service));
+            configuration_service, config_work_queue_thread, nullptr,
+            std::make_shared<CanbusComLoggingCommandSender>(canbus_com_service)
+        );
         if(!configuration_update_logging_stop->Initialize() || !configuration_update_logging_stop->Start())
             LOG_ERR("Failed to start the configuration update stop.");
     }
@@ -334,20 +311,17 @@ int main(void) {
     // Constructed after every controller that registers a configuration manager.
     const auto system_configuration = system_controller->GetConfigurationManager()->Get();
     auto management_controller = std::make_shared<ManagementController>(
-        configuration_service,
-        config_work_queue_thread,
+        configuration_service, config_work_queue_thread,
         canbus_com_service != nullptr ? canbus_com_service->GetNetworkInfo() : nullptr,
-        system_configuration != nullptr ? system_configuration->build_number : 0,
-        sensors_controller->GetCapabilities(),
-        sd_fs_service,
-        assets_manager);
+        system_configuration != nullptr ? system_configuration->build_number : 0, sensors_controller->GetCapabilities(),
+        sd_fs_service, assets_manager
+    );
     if(management_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the management controller.");
 
     auto canbus_scheduler_service = std::make_shared<CanbusSchedulerService>(
-        canbus_controller->GetConfigurationManager(),
-        canbus_controller->GetService(),
-        sensor_readings_frame);
+        canbus_controller->GetConfigurationManager(), canbus_controller->GetService(), sensor_readings_frame
+    );
     canbus_scheduler_service->Initialize();
     canbus_controller->RegisterDependentService(canbus_scheduler_service);
 
@@ -473,8 +447,8 @@ void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus
     }
 
     canbus_configuration->channel_configurations.emplace(
-        canbus_channel_configuration_0.bus_channel,
-        std::move(canbus_channel_configuration_0));
+        canbus_channel_configuration_0.bus_channel, std::move(canbus_channel_configuration_0)
+    );
 
     // ============================================
     // CANBus 1
@@ -503,8 +477,8 @@ void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus
     canbus_channel_configuration_1.message_configurations.emplace_back(std::move(message_configuration_1_0));
 
     canbus_configuration->channel_configurations.emplace(
-        canbus_channel_configuration_1.bus_channel,
-        std::move(canbus_channel_configuration_1));
+        canbus_channel_configuration_1.bus_channel, std::move(canbus_channel_configuration_1)
+    );
 
     canbus_configuration_manager->Update(*canbus_configuration);
 }
@@ -523,7 +497,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     // sensor_1->configuration.script_path = "scripts/sensor_1.lua";
     sensor_1->configuration.sampling_rate_ms = 50;
     sensor_1->configuration.interpolation_method = InterpolationMethod::LINEAR;
-    sensor_1->configuration.calibration_table = { {0.0, 0.0}, {5.0, 100.0} };
+    sensor_1->configuration.calibration_table = { { 0.0, 0.0 }, { 5.0, 100.0 } };
     // sensor_1->configuration.expression = "x * 2 + sensor_2 + 1";
 
     auto sensor_2 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_2");
@@ -536,7 +510,7 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_2->configuration.channel = 1;
     sensor_2->configuration.sampling_rate_ms = 1000;
     sensor_2->configuration.interpolation_method = InterpolationMethod::CUBIC_SPLINE;
-    sensor_2->configuration.calibration_table = { {0.0, 90.0}, {5.0, 100.0} };
+    sensor_2->configuration.calibration_table = { { 0.0, 90.0 }, { 5.0, 100.0 } };
     sensor_2->configuration.expression = "x * 4 + 1.6";
 
     auto sensor_3 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_3");
@@ -598,16 +572,8 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensor_8->configuration.sampling_rate_ms = 500;
     sensor_8->configuration.expression = "x * 2";
 
-    std::vector<std::shared_ptr<Sensor>> sensors = {
-        sensor_1,
-        sensor_2,
-        sensor_3,
-        sensor_4,
-        sensor_5,
-        sensor_6,
-        sensor_7,
-        sensor_8
-    };
+    std::vector<std::shared_ptr<Sensor>> sensors = { sensor_1, sensor_2, sensor_3, sensor_4, sensor_5, sensor_6,
+        sensor_7, sensor_8 };
 
     // std::vector<std::shared_ptr<Sensor>> sensors;
 
@@ -632,8 +598,10 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
     sensors_configuration_manager->Update(sensors);
 }
 
-void SetupLoggingConfiguration(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager,
-    std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager) {
+void SetupLoggingConfiguration(
+    std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager,
+    std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager
+) {
 
     auto sensors = sensors_configuration_manager->Get();
 
@@ -647,32 +615,24 @@ void SetupLoggingConfiguration(std::shared_ptr<SensorsConfigurationManager> sens
     logging_configuration->logging_interval_ms = 100;
 
     SensorLoggingConfiguration sensor_logging_config_1 = {
-        .is_enabled = true,
-        .log_raw_value = false,
-        .log_only_new_data = false
+        .is_enabled = true, .log_raw_value = false, .log_only_new_data = false
     };
-    logging_configuration->sensor_configurations.insert({sensors->at(0)->id_hash, sensor_logging_config_1});
+    logging_configuration->sensor_configurations.insert({ sensors->at(0)->id_hash, sensor_logging_config_1 });
 
     SensorLoggingConfiguration sensor_logging_config_2 = {
-        .is_enabled = true,
-        .log_raw_value = true,
-        .log_only_new_data = false
+        .is_enabled = true, .log_raw_value = true, .log_only_new_data = false
     };
-    logging_configuration->sensor_configurations.insert({sensors->at(1)->id_hash, sensor_logging_config_2});
+    logging_configuration->sensor_configurations.insert({ sensors->at(1)->id_hash, sensor_logging_config_2 });
 
     SensorLoggingConfiguration sensor_logging_config_6 = {
-        .is_enabled = true,
-        .log_raw_value = true,
-        .log_only_new_data = false
+        .is_enabled = true, .log_raw_value = true, .log_only_new_data = false
     };
-    logging_configuration->sensor_configurations.insert({sensors->at(5)->id_hash, sensor_logging_config_6});
+    logging_configuration->sensor_configurations.insert({ sensors->at(5)->id_hash, sensor_logging_config_6 });
 
     SensorLoggingConfiguration sensor_logging_config_7 = {
-        .is_enabled = true,
-        .log_raw_value = true,
-        .log_only_new_data = true
+        .is_enabled = true, .log_raw_value = true, .log_only_new_data = true
     };
-    logging_configuration->sensor_configurations.insert({sensors->at(6)->id_hash, sensor_logging_config_7});
+    logging_configuration->sensor_configurations.insert({ sensors->at(6)->id_hash, sensor_logging_config_7 });
 
     logging_configuration_manager->Update(*logging_configuration);
 }

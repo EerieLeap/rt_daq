@@ -7,8 +7,9 @@ namespace eerie_leap::views::animations {
 using namespace eerie_leap::views::animations::utilities;
 using namespace eerie_leap::subsys::cfb;
 
-WaveLinesAnimation::WaveLinesAnimation(std::shared_ptr<Cfb> cfb)
-    : cfb_(std::move(cfb)), frame_(0) {}
+WaveLinesAnimation::WaveLinesAnimation(std::shared_ptr<Cfb> cfb) :
+    cfb_(std::move(cfb)),
+    frame_(0) {}
 
 void WaveLinesAnimation::Initialize() {
     frame_ = 0;
@@ -32,7 +33,7 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
     const uint16_t screen_width = cfb_->GetXRes();
     const uint16_t screen_height = cfb_->GetYRes();
 
-    Coordinate prev_point = {0, 0};
+    Coordinate prev_point = { 0, 0 };
     bool has_prev = false;
 
     // Calculate y position for this line
@@ -51,8 +52,7 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
         // Calculate distance from center for radial effect
         float center_x = screen_width / 2.0F;
         float center_y = screen_height / 2.0F;
-        float dist = sqrtf((x - center_x) * (x - center_x) +
-                          (y - center_y) * (y - center_y));
+        float dist = sqrtf((x - center_x) * (x - center_x) + (y - center_y) * (y - center_y));
 
         // Amplitude modulation based on time and distance
         float cos_val = cosf(AnimationMathHelpers::PI * 2.0F * time - 0.02F * dist) * 1.1F;
@@ -66,8 +66,8 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
         // float sq_amp = amplitude * amplitude;
 
         // x += AnimationMathHelpers::EaseWithGamma(sq_amp, 3.0f) * (screen_width * 0.1f) * sinf(wave_phase);
-        y += AnimationMathHelpers::EaseWithGamma(1.0F - (1.0F - amplitude) * (1.0F - amplitude), 3.0F)
-            * max_amplitude * cosf(wave_phase);
+        y += AnimationMathHelpers::EaseWithGamma(1.0F - (1.0F - amplitude) * (1.0F - amplitude), 3.0F) * max_amplitude
+            * cosf(wave_phase);
 
         // Convert to screen coordinates
         uint16_t screen_x = static_cast<uint16_t>(x + 0.5F);
@@ -77,13 +77,13 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
         if(screen_x < screen_width && screen_y < screen_height) {
             if(has_prev) {
                 // Draw line segment from previous point
-                cfb_->DrawLine(prev_point, {screen_x, screen_y});
+                cfb_->DrawLine(prev_point, { screen_x, screen_y });
             } else {
                 // First point, just draw it
-                cfb_->DrawPoint({screen_x, screen_y});
+                cfb_->DrawPoint({ screen_x, screen_y });
             }
 
-            prev_point = {screen_x, screen_y};
+            prev_point = { screen_x, screen_y };
             has_prev = true;
         } else {
             has_prev = false;

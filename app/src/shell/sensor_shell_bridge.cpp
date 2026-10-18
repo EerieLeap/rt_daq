@@ -1,33 +1,31 @@
 #ifdef CONFIG_APP_SENSOR_SHELL
 
-#include <cerrno>
-#include <chrono>
-#include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <exception>
-#include <functional>
-#include <memory>
-#include <string>
-#include <string_view>
+    #include <cerrno>
+    #include <chrono>
+    #include <cmath>
+    #include <cstdio>
+    #include <cstdlib>
+    #include <exception>
+    #include <functional>
+    #include <memory>
+    #include <string>
+    #include <string_view>
 
-#include <zephyr/kernel.h>
-#include <zephyr/shell/shell.h>
+    #include <zephyr/kernel.h>
+    #include <zephyr/shell/shell.h>
 
-#include "domain/sensor_domain/models/reading_error.h"
-#include "domain/sensor_domain/models/reading_source.h"
-#include "domain/sensor_domain/models/reading_status.h"
-#include "domain/sensor_domain/models/sensor_reading.h"
-#include "domain/sensor_domain/models/sensor_reading_update_method.h"
-#include "domain/sensor_domain/models/sensor_type_traits.h"
+    #include "domain/sensor_domain/models/reading_error.h"
+    #include "domain/sensor_domain/models/reading_source.h"
+    #include "domain/sensor_domain/models/reading_status.h"
+    #include "domain/sensor_domain/models/sensor_reading.h"
+    #include "domain/sensor_domain/models/sensor_reading_update_method.h"
+    #include "domain/sensor_domain/models/sensor_type_traits.h"
 
-#include "configuration_job.h"
-#include "sensor_shell_bridge.h"
+    #include "configuration_job.h"
+    #include "sensor_shell_bridge.h"
 
 namespace eerie_leap::shell {
 
-using eerie_leap::subsys::threading::WorkQueueThread;
-using eerie_leap::subsys::time::ITimeService;
 using eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager;
 using eerie_leap::domain::sensor_domain::models::ReadingSource;
 using eerie_leap::domain::sensor_domain::models::ReadingStatus;
@@ -36,6 +34,8 @@ using eerie_leap::domain::sensor_domain::models::SensorReadingUpdateMethod;
 using eerie_leap::domain::sensor_domain::models::SensorValueKind;
 using eerie_leap::domain::sensor_domain::services::SensorsProcessingService;
 using eerie_leap::domain::sensor_domain::utilities::SensorReadingsFrame;
+using eerie_leap::subsys::threading::WorkQueueThread;
+using eerie_leap::subsys::time::ITimeService;
 
 namespace {
 
@@ -46,8 +46,11 @@ std::shared_ptr<ITimeService> time_service;
 std::shared_ptr<WorkQueueThread> config_work_queue_thread;
 
 bool IsAttached() {
-    return sensor_readings_frame && sensors_configuration_manager && sensors_processing_service
-        && time_service && config_work_queue_thread;
+    return sensor_readings_frame
+        && sensors_configuration_manager
+        && sensors_processing_service
+        && time_service
+        && config_work_queue_thread;
 }
 
 bool ParseFiniteFloat(const char* text, float& value) {
@@ -76,12 +79,18 @@ std::string FormatValue(float value) {
 
 const char* ToString(ReadingStatus status) {
     switch(status) {
-        case ReadingStatus::UNINITIALIZED: return "UNINITIALIZED";
-        case ReadingStatus::RAW: return "RAW";
-        case ReadingStatus::INTERPOLATED: return "INTERPOLATED";
-        case ReadingStatus::EXPRESSION_EVALUATED: return "EXPRESSION_EVALUATED";
-        case ReadingStatus::PROCESSED: return "PROCESSED";
-        case ReadingStatus::ERROR: return "ERROR";
+        case ReadingStatus::UNINITIALIZED:
+            return "UNINITIALIZED";
+        case ReadingStatus::RAW:
+            return "RAW";
+        case ReadingStatus::INTERPOLATED:
+            return "INTERPOLATED";
+        case ReadingStatus::EXPRESSION_EVALUATED:
+            return "EXPRESSION_EVALUATED";
+        case ReadingStatus::PROCESSED:
+            return "PROCESSED";
+        case ReadingStatus::ERROR:
+            return "ERROR";
     }
 
     return "?";
@@ -107,7 +116,8 @@ void AttachSensorShell(
     std::shared_ptr<SensorsConfigurationManager> sensors_manager,
     std::shared_ptr<SensorsProcessingService> processing_service,
     std::shared_ptr<ITimeService> time,
-    std::shared_ptr<WorkQueueThread> work_queue_thread) {
+    std::shared_ptr<WorkQueueThread> work_queue_thread
+) {
 
     sensor_readings_frame = std::move(frame);
     sensors_configuration_manager = std::move(sensors_manager);
@@ -168,8 +178,8 @@ extern "C" int app_sensor_shell_set(const struct shell* sh, size_t argc, char** 
 
             const auto traits = sensor->configuration.GetTraits();
             // An indicator holds 0 or 1, as the expression processor stores it.
-            const float stored =
-                traits.value_kind == SensorValueKind::INDICATOR ? (value != 0.0F ? 1.0F : 0.0F) : value;
+            const float stored = traits.value_kind == SensorValueKind::INDICATOR ? (value != 0.0F ? 1.0F : 0.0F)
+                                                                                 : value;
 
             SensorReading reading(sensor.get());
             reading.value = stored;
@@ -238,13 +248,16 @@ extern "C" int app_sensor_shell_get(const struct shell* sh, size_t argc, char** 
 
         shell_print(sh, "status %s", ToString(reading->status));
         if(reading->HasError())
-            shell_print(sh, "error %s",
-                std::string(eerie_leap::domain::sensor_domain::models::ToString(reading->error)).c_str());
+            shell_print(
+                sh, "error %s", std::string(eerie_leap::domain::sensor_domain::models::ToString(reading->error)).c_str()
+            );
 
         if(reading->timestamp.has_value()) {
             const auto age = time_service->GetCurrentTime() - *reading->timestamp;
-            shell_print(sh, "age %lld ms",
-                static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(age).count()));
+            shell_print(
+                sh, "age %lld ms",
+                static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(age).count())
+            );
         }
 
         return 0;

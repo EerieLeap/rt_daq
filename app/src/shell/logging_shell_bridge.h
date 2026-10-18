@@ -2,9 +2,9 @@
 
 #include <memory>
 
-#include "subsys/threading/work_queue_thread.h"
-#include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
 #include "controllers/logging_controller.h"
+#include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
+#include "subsys/threading/work_queue_thread.h"
 
 namespace eerie_leap::shell {
 
@@ -14,7 +14,9 @@ namespace eerie_leap::shell {
 // trigger can be exercised without an SMP client. Built with CONFIG_APP_LOGGING_SHELL only.
 void AttachLoggingShell(
     std::shared_ptr<eerie_leap::controllers::LoggingController> controller,
-    std::shared_ptr<eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager> sensors_configuration_manager,
-    std::shared_ptr<eerie_leap::subsys::threading::WorkQueueThread> config_work_queue_thread);
+    std::shared_ptr<eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager>
+        sensors_configuration_manager,
+    std::shared_ptr<eerie_leap::subsys::threading::WorkQueueThread> config_work_queue_thread
+);
 
 } // namespace eerie_leap::shell

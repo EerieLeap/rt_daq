@@ -1,33 +1,33 @@
 #ifdef CONFIG_APP_LOGGING_SHELL
 
-#include <cerrno>
-#include <cstdint>
-#include <cstdlib>
-#include <exception>
-#include <functional>
-#include <memory>
-#include <string>
+    #include <cerrno>
+    #include <cstdint>
+    #include <cstdlib>
+    #include <exception>
+    #include <functional>
+    #include <memory>
+    #include <string>
 
-#include <zephyr/kernel.h>
-#include <zephyr/fs/fs.h>
-#include <zephyr/shell/shell.h>
+    #include <zephyr/fs/fs.h>
+    #include <zephyr/kernel.h>
+    #include <zephyr/shell/shell.h>
 
-#include "utilities/memory/memory_resource_manager.h"
-#include "subsys/device_tree/dt_fs.h"
-#include "domain/logging_domain/control/i_logging_control.h"
-#include "domain/logging_domain/models/logging_configuration.h"
+    #include "domain/logging_domain/control/i_logging_control.h"
+    #include "domain/logging_domain/models/logging_configuration.h"
+    #include "subsys/device_tree/dt_fs.h"
+    #include "utilities/memory/memory_resource_manager.h"
 
-#include "configuration_job.h"
-#include "logging_shell_bridge.h"
+    #include "configuration_job.h"
+    #include "logging_shell_bridge.h"
 
 namespace eerie_leap::shell {
 
-using eerie_leap::utilities::memory::Mrm;
-using eerie_leap::subsys::threading::WorkQueueThread;
 using eerie_leap::controllers::LoggingController;
-using eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager;
 using eerie_leap::domain::logging_domain::control::ILoggingControl;
 using eerie_leap::domain::logging_domain::models::LoggingConfiguration;
+using eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager;
+using eerie_leap::subsys::threading::WorkQueueThread;
+using eerie_leap::utilities::memory::Mrm;
 
 namespace {
 
@@ -69,7 +69,8 @@ bool ParseTarget(size_t argc, char** argv, uint32_t& target_uid) {
 void AttachLoggingShell(
     std::shared_ptr<LoggingController> controller,
     std::shared_ptr<SensorsConfigurationManager> sensors_manager,
-    std::shared_ptr<WorkQueueThread> work_queue_thread) {
+    std::shared_ptr<WorkQueueThread> work_queue_thread
+) {
 
     logging_controller = std::move(controller);
     sensors_configuration_manager = std::move(sensors_manager);
@@ -127,12 +128,18 @@ extern "C" int app_logging_shell_status(const struct shell* sh) {
     }
 
     const auto stats = service->GetStats();
-    shell_print(sh, "active: %s, running: %s, failed: %s",
-        control->IsActive() ? "yes" : "no", service->IsRunning() ? "yes" : "no", service->HasFailed() ? "yes" : "no");
-    shell_print(sh, "ticks %u, readings %u, frames %u (dropped %u), bytes %llu, writes %u, syncs %u, rotations %u, overruns %u, errors %u, tick last/max %u/%u us",
-        stats.ticks, stats.readings, stats.frames, stats.frames_dropped,
-        static_cast<unsigned long long>(stats.bytes), stats.stream_writes, stats.syncs,
-        stats.rotations, stats.overruns, stats.write_errors, stats.tick_last_us, stats.tick_max_us);
+    shell_print(
+        sh, "active: %s, running: %s, failed: %s", control->IsActive() ? "yes" : "no",
+        service->IsRunning() ? "yes" : "no", service->HasFailed() ? "yes" : "no"
+    );
+    shell_print(
+        sh,
+        "ticks %u, readings %u, frames %u (dropped %u), bytes %llu, writes %u, syncs %u, rotations %u, overruns %u, "
+        "errors %u, tick last/max %u/%u us",
+        stats.ticks, stats.readings, stats.frames, stats.frames_dropped, static_cast<unsigned long long>(stats.bytes),
+        stats.stream_writes, stats.syncs, stats.rotations, stats.overruns, stats.write_errors, stats.tick_last_us,
+        stats.tick_max_us
+    );
 
     return 0;
 }
@@ -156,30 +163,32 @@ extern "C" int app_logging_shell_config(const struct shell* sh, size_t argc, cha
 
     const auto manager = logging_controller->GetConfigurationManager();
 
-    return RunConfigurationJob(sh, *config_work_queue_thread, [manager, interval_ms, max_log_size_mb](std::string& message) {
-        const auto current = manager->Get();
-        if(current == nullptr) {
-            message = "No logging configuration is available.";
-            return -ENODATA;
+    return RunConfigurationJob(
+        sh, *config_work_queue_thread, [manager, interval_ms, max_log_size_mb](std::string& message) {
+            const auto current = manager->Get();
+            if(current == nullptr) {
+                message = "No logging configuration is available.";
+                return -ENODATA;
+            }
+
+            // What restores it: printed whether or not the new one is stored.
+            const std::string previous = "Previous: logging config " + std::to_string(current->logging_interval_ms)
+                + " " + std::to_string(current->max_log_size_mb);
+
+            LoggingConfiguration configuration(std::allocator_arg, Mrm::GetExtPmr());
+            configuration = *current;
+            configuration.logging_interval_ms = interval_ms;
+            configuration.max_log_size_mb = max_log_size_mb;
+
+            if(!manager->Update(configuration)) {
+                message = previous + "\nThe configuration was rejected or not stored; see the log.";
+                return -EIO;
+            }
+
+            message = previous + "\nStored; logging stops on every unit until it is started again.";
+            return 0;
         }
-
-        // What restores it: printed whether or not the new one is stored.
-        const std::string previous = "Previous: logging config " + std::to_string(current->logging_interval_ms)
-            + " " + std::to_string(current->max_log_size_mb);
-
-        LoggingConfiguration configuration(std::allocator_arg, Mrm::GetExtPmr());
-        configuration = *current;
-        configuration.logging_interval_ms = interval_ms;
-        configuration.max_log_size_mb = max_log_size_mb;
-
-        if(!manager->Update(configuration)) {
-            message = previous + "\nThe configuration was rejected or not stored; see the log.";
-            return -EIO;
-        }
-
-        message = previous + "\nStored; logging stops on every unit until it is started again.";
-        return 0;
-    });
+    );
 }
 
 // Applies the stored sensors configuration again through ApplyCborConfiguration(), as an SMP apply
@@ -207,7 +216,8 @@ extern "C" int app_logging_shell_reapply_sensors(const struct shell* sh) {
             return -EIO;
         }
 
-        message = "Applied " + std::to_string(cbor.size()) + " bytes; processing restarts, and logging stops on every unit until it is started again.";
+        message = "Applied " + std::to_string(cbor.size())
+            + " bytes; processing restarts, and logging stops on every unit until it is started again.";
         return 0;
     });
 }

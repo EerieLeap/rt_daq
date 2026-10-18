@@ -17,6 +17,7 @@ namespace eerie_leap::shell {
 int RunConfigurationJob(
     const struct shell* sh,
     eerie_leap::subsys::threading::WorkQueueThread& config_work_queue_thread,
-    std::function<int(std::string&)> job);
+    std::function<int(std::string&)> job
+);
 
 } // namespace eerie_leap::shell
