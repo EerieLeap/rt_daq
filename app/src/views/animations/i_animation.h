@@ -9,4 +9,4 @@ public:
     virtual void Animate() = 0;
 };
 
-}  // namespace eerie_leap::views::animations
+} // namespace eerie_leap::views::animations

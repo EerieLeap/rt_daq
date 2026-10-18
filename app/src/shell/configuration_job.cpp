@@ -1,12 +1,12 @@
 #if defined(CONFIG_APP_LOGGING_SHELL) || defined(CONFIG_APP_SENSOR_SHELL)
 
-#include <cerrno>
-#include <exception>
-#include <memory>
+    #include <cerrno>
+    #include <exception>
+    #include <memory>
 
-#include <zephyr/kernel.h>
+    #include <zephyr/kernel.h>
 
-#include "configuration_job.h"
+    #include "configuration_job.h"
 
 namespace eerie_leap::shell {
 
@@ -25,7 +25,8 @@ struct JobResult {
 int RunConfigurationJob(
     const struct shell* sh,
     eerie_leap::subsys::threading::WorkQueueThread& config_work_queue_thread,
-    std::function<int(std::string&)> job) {
+    std::function<int(std::string&)> job
+) {
 
     auto result = std::make_shared<JobResult>();
     k_sem_init(&result->done, 0, 1);

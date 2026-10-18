@@ -7,9 +7,9 @@
 
 namespace eerie_leap::event_bus {
 
-using eerie_leap::subsys::event_bus::EventBus;
 using eerie_leap::domain::logging_domain::event_bus::LoggingEventsChannel;
 using eerie_leap::domain::sensor_domain::event_bus::SensorEventsChannel;
+using eerie_leap::subsys::event_bus::EventBus;
 
 // The unit's one bus thread. It carries logging_events (the writer's status: the supervisor, the
 // exporter and the display follow it) and sensor_events (the readings the logging triggers bind to).
@@ -21,7 +21,8 @@ class AppEventBus : public EventBus {
 private:
     static constexpr int k_stack_size = 4096;
 
-    AppEventBus() : EventBus("app_event_bus", k_stack_size) {
+    AppEventBus() :
+        EventBus("app_event_bus", k_stack_size) {
         RegisterChannel(LoggingEventsChannel::GetInstance());
         RegisterChannel(SensorEventsChannel::GetInstance());
     }

@@ -26,4 +26,4 @@ public:
     void Animate() override;
 };
 
-}  // namespace eerie_leap::views::animations
+} // namespace eerie_leap::views::animations

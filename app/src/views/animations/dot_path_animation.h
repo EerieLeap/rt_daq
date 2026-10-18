@@ -1,8 +1,8 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 #include <random>
+#include <vector>
 
 #include "subsys/cfb/cfb.h"
 
@@ -33,11 +33,16 @@ private:
 
     void DrawDot(uint16_t x, uint16_t y, float size);
     void GetPositionAndSize(float p, float& x, float& y, float& size) const;
-    void GeneratePath(float x, float y, uint16_t screen_width,
-        uint16_t screen_height, float empty_margin);
+    void GeneratePath(float x, float y, uint16_t screen_width, uint16_t screen_height, float empty_margin);
     void ApplyJump(float& x, float& y, float jump_length, int direction);
-    void ClampToBounds(float& x, float& y, float jump_length,
-        uint16_t screen_width, uint16_t screen_height, float empty_margin);
+    void ClampToBounds(
+        float& x,
+        float& y,
+        float jump_length,
+        uint16_t screen_width,
+        uint16_t screen_height,
+        float empty_margin
+    );
     float GenerateRandomPosition(float min, float max);
 
 public:

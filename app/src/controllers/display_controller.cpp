@@ -3,12 +3,12 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
-#include "subsys/event_bus/event_channel.h"
 #include "domain/logging_domain/event_bus/logging_events_channel.h"
-#include "views/animations/particles_animation.h"
-#include "views/animations/wave_lines_animation.h"
-#include "views/animations/tapered_wave_animation.h"
+#include "subsys/event_bus/event_channel.h"
 #include "views/animations/dot_path_animation.h"
+#include "views/animations/particles_animation.h"
+#include "views/animations/tapered_wave_animation.h"
+#include "views/animations/wave_lines_animation.h"
 
 #include "display_controller.h"
 
@@ -18,16 +18,16 @@ namespace eerie_leap::controllers {
 
 using namespace eerie_leap::views::animations;
 
-using eerie_leap::subsys::event_bus::CreateScopedSubscription;
-using eerie_leap::subsys::threading::WorkQueueTaskResult;
 using eerie_leap::domain::logging_domain::event_bus::LoggingEventsChannel;
 using eerie_leap::domain::logging_domain::event_bus::LoggingEventType;
 using eerie_leap::domain::logging_domain::event_bus::LoggingPayloadType;
+using eerie_leap::subsys::event_bus::CreateScopedSubscription;
+using eerie_leap::subsys::threading::WorkQueueTaskResult;
 
-DisplayController::DisplayController(std::shared_ptr<Cfb> cfb)
-    : cfb_(std::move(cfb)),
+DisplayController::DisplayController(std::shared_ptr<Cfb> cfb) :
+    cfb_(std::move(cfb)),
     current_animation_index_(0),
-    guard_(std::make_shared<DispatchGuard>(this)) { }
+    guard_(std::make_shared<DispatchGuard>(this)) {}
 
 DisplayController::~DisplayController() {
     // Detach before the unsubscribe and the cancel: a handler in flight could otherwise reschedule
@@ -69,13 +69,14 @@ void DisplayController::FollowLoggingStatus(std::shared_ptr<WorkQueueThread> wor
         [](DisplayController* controller) {
             controller->UpdateLoggingStatus();
             return WorkQueueTaskResult{};
-        }, this);
+        },
+        this
+    );
 
     // The writer publishes asynchronously, so the handler runs on the bus thread; the display is
     // not thread-safe, so what it triggers runs on the work queue.
     logging_status_subscription_ = CreateScopedSubscription(
-        LoggingEventsChannel::GetInstance(),
-        LoggingEventType::StatusUpdated,
+        LoggingEventsChannel::GetInstance(), LoggingEventType::StatusUpdated,
         [guard = guard_, this](const LoggingEventsChannel::EventMessage& event) {
             guard->Dispatch([&] {
                 const auto is_active = event.payload.find(LoggingPayloadType::IsActive);
@@ -85,7 +86,8 @@ void DisplayController::FollowLoggingStatus(std::shared_ptr<WorkQueueThread> wor
 
                 logging_status_task_->Reschedule(K_NO_WAIT);
             });
-        });
+        }
+    );
     if(logging_status_subscription_ == nullptr)
         LOG_ERR("Failed to follow the logging status.");
 }
@@ -132,9 +134,12 @@ void DisplayController::StartAnimation(int animation_index) {
 
     animation_->Initialize();
 
-    cfb_->SetAnimationHandler([this]() {
-        animation_->Animate();
-    }, 30);
+    cfb_->SetAnimationHandler(
+        [this]() {
+            animation_->Animate();
+        },
+        30
+    );
     cfb_->StartAnimation();
 
     is_animation_in_progress_ = true;
@@ -161,7 +166,7 @@ void DisplayController::PrintStringLine(const std::string& str) {
     StopAnimation();
 
     cfb_->Clear();
-    cfb_->PrintString(str.c_str(), {0, 0});
+    cfb_->PrintString(str.c_str(), { 0, 0 });
     cfb_->Flush();
 }
 
@@ -217,13 +222,13 @@ void DisplayController::UpdateStatuses() {
     int current_x_px = start_x_px;
     int i = 0;
     for(const auto& s : statuses_) {
-        cfb_->PrintStringLine(s.c_str(), {current_x_px + padding, y});
+        cfb_->PrintStringLine(s.c_str(), { current_x_px + padding, y });
         int current_length_px = s.size() * cfb_->GetFontWidth() + padding * 2;
 
         if(i++ % 2 != 0) {
             cfb_->InvertArea(
-                {current_x_px, y - padding},
-                {current_x_px + current_length_px, y + cfb_->GetFontHeight() + padding});
+                { current_x_px, y - padding }, { current_x_px + current_length_px, y + cfb_->GetFontHeight() + padding }
+            );
         }
 
         current_x_px += current_length_px;

@@ -2,11 +2,11 @@
 
 #include <memory>
 
-#include "subsys/threading/work_queue_thread.h"
-#include "subsys/time/i_time_service.h"
 #include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
 #include "domain/sensor_domain/services/sensors_processing_service.h"
 #include "domain/sensor_domain/utilities/sensor_readings_frame.hpp"
+#include "subsys/threading/work_queue_thread.h"
+#include "subsys/time/i_time_service.h"
 
 namespace eerie_leap::shell {
 
@@ -17,9 +17,11 @@ namespace eerie_leap::shell {
 // reading. Built with CONFIG_APP_SENSOR_SHELL only.
 void AttachSensorShell(
     std::shared_ptr<eerie_leap::domain::sensor_domain::utilities::SensorReadingsFrame> sensor_readings_frame,
-    std::shared_ptr<eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager> sensors_configuration_manager,
+    std::shared_ptr<eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager>
+        sensors_configuration_manager,
     std::shared_ptr<eerie_leap::domain::sensor_domain::services::SensorsProcessingService> sensors_processing_service,
     std::shared_ptr<eerie_leap::subsys::time::ITimeService> time_service,
-    std::shared_ptr<eerie_leap::subsys::threading::WorkQueueThread> config_work_queue_thread);
+    std::shared_ptr<eerie_leap::subsys::threading::WorkQueueThread> config_work_queue_thread
+);
 
 } // namespace eerie_leap::shell
