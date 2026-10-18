@@ -139,9 +139,9 @@ CheckOptions:
   readability-identifier-naming.GlobalConstantCase: UPPER_CASE
   readability-identifier-naming.StaticConstantCase: UPPER_CASE
   readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
-  # Standard-library-shaped interfaces (containers, allocators, stream buffers) keep their std names.
+  # Standard-library-shaped interfaces (containers, allocators, stream buffers, filesystem paths) keep their std names.
   readability-identifier-naming.TypeAliasIgnoredRegexp: '^(allocator_type|key_type|mapped_type|value_type|size_type|difference_type|reference|const_reference|pointer|const_pointer|iterator|const_iterator|element_type)$'
-  readability-identifier-naming.MethodIgnoredRegexp: '^(begin|end|cbegin|cend|rbegin|rend|size|empty|capacity|data|find|at|contains|insert|insert_or_assign|emplace|emplace_back|push_back|pop_back|erase|clear|reserve|resize|swap|front|back|get_allocator|allocate|deallocate|reallocate|do_allocate|do_deallocate|do_is_equal|overflow|underflow|uflow|sync|xsputn|xsgetn|seekoff|seekpos|showmanyc)$'
+  readability-identifier-naming.MethodIgnoredRegexp: '^(begin|end|cbegin|cend|rbegin|rend|size|empty|capacity|data|find|at|contains|insert|insert_or_assign|emplace|emplace_back|push_back|pop_back|erase|clear|reserve|resize|swap|front|back|get_allocator|close|is_open|parent_path|allocate|deallocate|reallocate|do_allocate|do_deallocate|do_is_equal|overflow|underflow|uflow|sync|xsputn|xsgetn|seekoff|seekpos|showmanyc)$'
   # C-callable free functions (Zephyr callbacks, shell handlers) and main.
   readability-identifier-naming.FunctionIgnoredRegexp: '^(main|[a-z][a-z0-9]*(_[a-z0-9]+)+)$'
   # Enumerators are split between UPPER_CASE and CamelCase; EnumConstantCase stays unset until decided.
