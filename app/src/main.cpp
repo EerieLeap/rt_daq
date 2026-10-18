@@ -174,7 +174,7 @@ static int Run() {
     const auto rtc_provider = std::make_shared<RtcProvider>();
     const auto boot_elapsed_time_provider = std::make_shared<BootElapsedTimeProvider>();
     const auto time_service = std::make_shared<TimeService>(rtc_provider, boot_elapsed_time_provider);
-    time_service->Initialize();
+    TimeService::Initialize();
 
     // Every start and stop of the log writer runs here, whatever requested it (the CDMP command, a
     // trigger, the shell, the autostart), besides the configuration applies, which restart sensor

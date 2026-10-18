@@ -46,7 +46,7 @@ private:
     void UpdateLoggingStatus();
 
 public:
-    DisplayController(std::shared_ptr<Cfb> cfb);
+    explicit DisplayController(std::shared_ptr<Cfb> cfb);
     // Withdraws the subscription and the task, and stops the animation. Not on the queue given to
     // FollowLoggingStatus(): it waits for a task in progress.
     ~DisplayController();
