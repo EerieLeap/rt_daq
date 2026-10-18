@@ -166,7 +166,7 @@ add LLVM's apt repository `deb http://apt.llvm.org/noble/ llvm-toolchain-noble-2
 | `scripts/tidy.sh --changed [BASE]` | Only sources changed since BASE (default `origin/main`). CI runs this on pull requests. |
 | `scripts/tidy.sh PATH...` | Limits it to the given files or directories. |
 | `scripts/tidy.sh --fix` | Applies the fixes clang-tidy offers; review `git diff` afterwards. |
-| `scripts/tidy.sh -p DIR` | Uses the database in another build directory. |
+| `scripts/tidy.sh -p DIR` | Uses the database in DIR, or every one below it (a twister output directory); repeatable. |
 
 To waive a finding, name the check and give the reason: `// NOLINT(check-name): reason` at the end of
 the line, `// NOLINTNEXTLINE(check-name): reason` above it, or `NOLINTBEGIN(check-name)` and
