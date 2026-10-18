@@ -205,11 +205,11 @@ void DisplayController::UpdateStatuses() {
 
     int length_chars = 0;
     for(const auto& s : statuses_)
-        length_chars += s.size();
+        length_chars += static_cast<int>(s.size());
 
     const int padding = 1;
 
-    const int length_px = length_chars * cfb_->GetFontWidth() + statuses_.size() * padding * 2;
+    const int length_px = length_chars * cfb_->GetFontWidth() + static_cast<int>(statuses_.size()) * padding * 2;
 
     int start_x_px = cfb_->GetXRes() - length_px;
     start_x_px = start_x_px < 0 ? 0 : start_x_px;
@@ -222,7 +222,7 @@ void DisplayController::UpdateStatuses() {
     int i = 0;
     for(const auto& s : statuses_) {
         cfb_->PrintStringLine(s.c_str(), { current_x_px + padding, y });
-        const int current_length_px = s.size() * cfb_->GetFontWidth() + padding * 2;
+        const int current_length_px = static_cast<int>(s.size()) * cfb_->GetFontWidth() + padding * 2;
 
         if(i++ % 2 != 0) {
             cfb_->InvertArea(

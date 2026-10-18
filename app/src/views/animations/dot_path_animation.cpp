@@ -11,16 +11,17 @@ using namespace eerie_leap::views::animations::utilities;
 
 DotPathAnimation::DotPathAnimation(std::shared_ptr<Cfb> cfb) :
     cfb_(std::move(cfb)),
+    // NOLINTNEXTLINE(bugprone-random-generator-seed): cosmetic animation; the fixed seed gives the same path on every start
     rng_(1234) {}
 
 void DotPathAnimation::Initialize() {
     const uint16_t screen_width = cfb_->GetXRes();
     const uint16_t screen_height = cfb_->GetYRes();
-    const float empty_margin = std::min(screen_width, screen_height) * 0.1F;
+    const float empty_margin = static_cast<float>(std::min(screen_width, screen_height)) * 0.1F;
 
     // Generate initial position
-    const float x = GenerateRandomPosition(empty_margin, screen_width - empty_margin);
-    const float y = GenerateRandomPosition(empty_margin, screen_height - empty_margin);
+    const float x = GenerateRandomPosition(empty_margin, static_cast<float>(screen_width) - empty_margin);
+    const float y = GenerateRandomPosition(empty_margin, static_cast<float>(screen_height) - empty_margin);
 
     positions_.push_back({ x, y });
     sizes_.push_back(0.0F); // Start with size 0
@@ -36,16 +37,18 @@ void DotPathAnimation::Animate() {
     const uint16_t screen_height = cfb_->GetYRes();
 
     // Draw dots along the path
-    for(int i = 0; i < DOT_COUNT; ++i) {
-        const float normalized_position = (i + time_) / DOT_COUNT;
+    for(int i = 0; i < static_cast<int>(DOT_COUNT); ++i) {
+        const float normalized_position = (static_cast<float>(i) + time_) / DOT_COUNT;
 
-        float x, y, size;
+        float x = 0.0F;
+        float y = 0.0F;
+        float size = 0.0F;
         GetPositionAndSize(normalized_position, x, y, size);
 
-        const uint16_t screen_x = static_cast<uint16_t>(x + 0.5F);
-        const uint16_t screen_y = static_cast<uint16_t>(y + 0.5F);
+        const uint16_t screen_x = static_cast<uint16_t>(std::lround(x));
+        const uint16_t screen_y = static_cast<uint16_t>(std::lround(y));
 
-        if(x < screen_width && y < screen_height && size > 0.1F)
+        if(x < static_cast<float>(screen_width) && y < static_cast<float>(screen_height) && size > 0.1F)
             DrawDot(screen_x, screen_y, size);
     }
 
@@ -61,7 +64,7 @@ void DotPathAnimation::GetPositionAndSize(float p, float& x, float& y, float& si
     const int i2 = i1 + 1;
 
     // Apply easing for smoother motion
-    float lerp_param = float_index - i1;
+    float lerp_param = float_index - static_cast<float>(i1);
     lerp_param = AnimationMathHelpers::EaseWithGamma(lerp_param, 4.0F);
 
     // Interpolate position
@@ -80,7 +83,7 @@ void DotPathAnimation::DrawDot(uint16_t x, uint16_t y, float size) {
     if(size <= 1.0F) {
         cfb_->DrawPoint({ x, y });
     } else {
-        const int radius = static_cast<int>((size / 2.0F) + 0.5F);
+        const int radius = static_cast<int>(std::lround(size / 2.0F));
         cfb_->DrawCircle({ x, y }, radius);
     }
 }
@@ -143,6 +146,8 @@ void DotPathAnimation::ApplyJump(float& x, float& y, float jump_length, int dire
             x -= jump_length * DIAGONAL;
             y -= jump_length * DIAGONAL;
             break;
+        default:
+            break;
     }
 }
 
@@ -154,12 +159,12 @@ void DotPathAnimation::ClampToBounds(
     uint16_t screen_height,
     float empty_margin
 ) {
-    if(x > screen_width - empty_margin)
+    if(x > static_cast<float>(screen_width) - empty_margin)
         x -= 2 * jump_length;
     else if(x < empty_margin)
         x += 2 * jump_length;
 
-    if(y > screen_height - empty_margin)
+    if(y > static_cast<float>(screen_height) - empty_margin)
         y -= 2 * jump_length;
     else if(y < empty_margin)
         y += 2 * jump_length;

@@ -2,6 +2,7 @@
 
 #include "wave_lines_animation.h"
 
+#include <cmath>
 #include <utility>
 
 namespace eerie_leap::views::animations {
@@ -20,10 +21,10 @@ void WaveLinesAnimation::Animate() {
     cfb_->Clear();
 
     // Calculate normalized time (0 to 1 over 100 frames, looping)
-    const float time = fmodf(frame_ / 100.0F, 1.0F);
+    const float time = fmodf(static_cast<float>(frame_) / 100.0F, 1.0F);
 
     for(int line = 0; line < LINES_COUNT; line++) {
-        const float phase_offset = line * 0.15F;
+        const float phase_offset = static_cast<float>(line) * 0.15F;
         DrawWaveLine(time + phase_offset, line);
     }
 
@@ -38,21 +39,22 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
     bool has_prev = false;
 
     // Calculate y position for this line
-    const float y_center = (line_index + 1.0F) * screen_height / (LINES_COUNT + 1.0F);
+    const float y_center = (static_cast<float>(line_index) + 1.0F) * static_cast<float>(screen_height)
+        / (LINES_COUNT + 1.0F);
 
     // Calculate maximum amplitude so lines don't overlap
-    const float max_amplitude = screen_height * 1.2F / (2.0F * (LINES_COUNT + 1.0F));
+    const float max_amplitude = static_cast<float>(screen_height) * 1.2F / (2.0F * (LINES_COUNT + 1.0F));
 
     for(int i = 0; std::cmp_less(i, screen_width); i++) {
         const float normalized_position = static_cast<float>(i) / static_cast<float>(screen_width - 1);
 
         // Base position - horizontal line at calculated center
-        const float x = normalized_position * screen_width;
+        const float x = normalized_position * static_cast<float>(screen_width);
         float y = y_center;
 
         // Calculate distance from center for radial effect
-        const float center_x = screen_width / 2.0F;
-        const float center_y = screen_height / 2.0F;
+        const float center_x = static_cast<float>(screen_width) / 2.0F;
+        const float center_y = static_cast<float>(screen_height) / 2.0F;
         const float dist = sqrtf((x - center_x) * (x - center_x) + (y - center_y) * (y - center_y));
 
         // Amplitude modulation based on time and distance
@@ -71,8 +73,8 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
             * cosf(wave_phase);
 
         // Convert to screen coordinates
-        const uint16_t screen_x = static_cast<uint16_t>(x + 0.5F);
-        const uint16_t screen_y = static_cast<uint16_t>(y + 0.5F);
+        const uint16_t screen_x = static_cast<uint16_t>(std::lround(x));
+        const uint16_t screen_y = static_cast<uint16_t>(std::lround(y));
 
         // Bounds check
         if(screen_x < screen_width && screen_y < screen_height) {

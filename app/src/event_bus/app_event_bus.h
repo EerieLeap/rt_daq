@@ -19,10 +19,10 @@ using eerie_leap::subsys::event_bus::EventBus;
 // triggers', so the sensor channel stays light.
 class AppEventBus : public EventBus {
 private:
-    static constexpr int k_stack_size = 4096;
+    static constexpr int STACK_SIZE = 4096;
 
     AppEventBus() :
-        EventBus("app_event_bus", k_stack_size) {
+        EventBus("app_event_bus", STACK_SIZE) {
         RegisterChannel(LoggingEventsChannel::GetInstance());
         RegisterChannel(SensorEventsChannel::GetInstance());
     }

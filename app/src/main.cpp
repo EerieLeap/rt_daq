@@ -1,3 +1,4 @@
+#include <exception>
 #include <memory>
 
 #include <eerie_memory.hpp>
@@ -98,9 +99,14 @@ LOG_MODULE_REGISTER(main_logger);
 
 constexpr uint32_t SLEEP_TIME_MS = 10000;
 
-static void SetupCanbusConfiguration(const std::shared_ptr<CanbusConfigurationManager>& canbus_configuration_manager);
-static void SetupTestSensors(const std::shared_ptr<SensorsConfigurationManager>& sensors_configuration_manager);
-static void SetupLoggingConfiguration(
+// The test configurations below are bench aids: SetupCanbusConfiguration and SetupTestSensors are
+// referenced from commented-out lines in Run(), SetupLoggingConfiguration only with
+// CONFIG_APP_SETUP_LOGGING_CONFIGURATION.
+[[maybe_unused]] static void
+SetupCanbusConfiguration(const std::shared_ptr<CanbusConfigurationManager>& canbus_configuration_manager);
+[[maybe_unused]] static void
+SetupTestSensors(const std::shared_ptr<SensorsConfigurationManager>& sensors_configuration_manager);
+[[maybe_unused]] static void SetupLoggingConfiguration(
     const std::shared_ptr<SensorsConfigurationManager>& sensors_configuration_manager,
     const std::shared_ptr<LoggingConfigurationManager>& logging_configuration_manager
 );
@@ -115,7 +121,7 @@ static void SetupLoggingConfiguration(
 // GPIO reading with expression evaluation takes minimum of 1900us
 // Formula evaluation takes minimum of 1800us, applicable to virtual sensors
 
-int main(void) {
+static int Run() {
     // Channels are inert until a bus registers them, so this comes before anything publishes or
     // subscribes.
     InitializeEventChannels();
@@ -142,6 +148,7 @@ int main(void) {
     display_controller->Initialize();
 
     std::shared_ptr<SdmmcService> sd_fs_service = nullptr;
+    // NOLINTNEXTLINE(misc-const-correctness): SdmmcService takes a mutable fs_mount_t*, through make_shared
     auto* sd_fs_mp = DtFs::GetSdFsMp();
     if(sd_fs_mp != nullptr) {
         sd_fs_service = std::make_shared<SdmmcService>(sd_fs_mp, DtFs::GetSdDiskName());
@@ -348,6 +355,19 @@ int main(void) {
     return 0;
 }
 
+// An exception that escapes Run() is logged and ends main() instead of reaching std::terminate().
+int main() {
+    try {
+        return Run();
+    } catch(const std::exception& e) {
+        LOG_ERR("Unhandled exception in main: %s", e.what());
+    } catch(...) {
+        LOG_ERR("Unhandled unknown exception in main.");
+    }
+
+    return -1;
+}
+
 void SetupCanbusConfiguration(const std::shared_ptr<CanbusConfigurationManager>& canbus_configuration_manager) {
     const auto canbus_configuration = make_shared_pmr<CanbusConfiguration>(Mrm::GetExtPmr());
     canbus_configuration->com_configuration.bus_channel = 0;
@@ -443,7 +463,7 @@ void SetupCanbusConfiguration(const std::shared_ptr<CanbusConfigurationManager>&
         signal_configuration.unit = "km/h";
         message_configuration->signal_configurations.emplace_back(std::move(signal_configuration));
 
-        canbus_channel_configuration_0.message_configurations.emplace_back(std::move(message_configuration));
+        canbus_channel_configuration_0.message_configurations.emplace_back(message_configuration);
     }
 
     canbus_configuration->channel_configurations.emplace(
@@ -474,7 +494,7 @@ void SetupCanbusConfiguration(const std::shared_ptr<CanbusConfigurationManager>&
     signal_configuration_1_0.unit = "RPM";
     signal_configuration_1_0.factor = 0.156;
     message_configuration_1_0->signal_configurations.emplace_back(std::move(signal_configuration_1_0));
-    canbus_channel_configuration_1.message_configurations.emplace_back(std::move(message_configuration_1_0));
+    canbus_channel_configuration_1.message_configurations.emplace_back(message_configuration_1_0);
 
     canbus_configuration->channel_configurations.emplace(
         canbus_channel_configuration_1.bus_channel, std::move(canbus_channel_configuration_1)
