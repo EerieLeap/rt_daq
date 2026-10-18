@@ -62,10 +62,9 @@ jobs:
           set -o pipefail
           scripts/tidy.sh --changed origin/${{ github.base_ref }} 2>&1 | tee tidy-report.txt
 
-      # Report only until every source is clean.
+      # Every source is clean: any warning fails the job.
       - name: Lint all sources
         if: github.event_name != 'pull_request'
-        continue-on-error: true
         working-directory: rt_daq
         run: |
           set -o pipefail
