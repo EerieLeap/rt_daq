@@ -59,7 +59,7 @@ bool ParseUint32(const char* text, uint32_t& value) {
 
 // The optional target of start and stop: a unit's UID, every unit that can log without it.
 bool ParseTarget(size_t argc, char** argv, uint32_t& target_uid) {
-    target_uid = ILoggingControl::kAllUnits;
+    target_uid = ILoggingControl::ALL_UNITS;
 
     return argc < 2 || ParseUint32(argv[1], target_uid);
 }
