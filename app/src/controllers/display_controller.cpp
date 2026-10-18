@@ -26,7 +26,7 @@ using eerie_leap::subsys::threading::WorkQueueTaskResult;
 
 DisplayController::DisplayController(std::shared_ptr<Cfb> cfb) :
     cfb_(std::move(cfb)),
-    current_animation_index_(0),
+    ,
     guard_(std::make_shared<DispatchGuard>(this)) {}
 
 DisplayController::~DisplayController() {
@@ -79,7 +79,7 @@ void DisplayController::FollowLoggingStatus(std::shared_ptr<WorkQueueThread> wor
         LoggingEventsChannel::GetInstance(), LoggingEventType::StatusUpdated,
         [guard = guard_, this](const LoggingEventsChannel::EventMessage& event) {
             guard->Dispatch([&] {
-                const auto is_active = event.payload.find(LoggingPayloadType::IsActive);
+                const auto* const is_active = event.payload.find(LoggingPayloadType::IsActive);
                 is_logging_active_ = is_active != event.payload.end()
                     && std::holds_alternative<bool>(is_active->second)
                     && std::get<bool>(is_active->second);
@@ -135,7 +135,7 @@ void DisplayController::StartAnimation(int animation_index) {
     animation_->Initialize();
 
     cfb_->SetAnimationHandler(
-        [this]() {
+        [this] {
             animation_->Animate();
         },
         30

@@ -1,4 +1,5 @@
 #include <cmath>
+#include <utility>
 
 #include "utilities/animation_math_helpers.h"
 
@@ -10,7 +11,7 @@ using namespace eerie_leap::views::animations::utilities;
 
 TaperedWaveAnimation::TaperedWaveAnimation(std::shared_ptr<Cfb> cfb) :
     cfb_(std::move(cfb)),
-    time_(0.0F) {}
+{}
 
 void TaperedWaveAnimation::Initialize() {
     time_ = 0.0F;
@@ -25,7 +26,7 @@ void TaperedWaveAnimation::Animate() {
     Coordinate prev_point = { .x = 0, .y = 0 };
     bool has_prev = false;
 
-    for(int i = 0; i <= screen_width; i++) {
+    for(int i = 0; std::cmp_less_equal(i, screen_width); i++) {
         const float normalized_position = i / static_cast<float>(screen_width);
 
         // Calculate position

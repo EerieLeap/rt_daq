@@ -11,7 +11,7 @@ using namespace eerie_leap::views::animations::utilities;
 
 DotPathAnimation::DotPathAnimation(std::shared_ptr<Cfb> cfb) :
     cfb_(std::move(cfb)),
-    time_(0.0F),
+    ,
     rng_(1234) {}
 
 void DotPathAnimation::Initialize() {

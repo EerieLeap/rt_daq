@@ -2,6 +2,8 @@
 
 #include "wave_lines_animation.h"
 
+#include <utility>
+
 namespace eerie_leap::views::animations {
 
 using namespace eerie_leap::views::animations::utilities;
@@ -9,7 +11,7 @@ using namespace eerie_leap::subsys::cfb;
 
 WaveLinesAnimation::WaveLinesAnimation(std::shared_ptr<Cfb> cfb) :
     cfb_(std::move(cfb)),
-    frame_(0) {}
+{}
 
 void WaveLinesAnimation::Initialize() {
     frame_ = 0;
@@ -42,7 +44,7 @@ void WaveLinesAnimation::DrawWaveLine(float time, int line_index) {
     // Calculate maximum amplitude so lines don't overlap
     const float max_amplitude = screen_height * 1.2F / (2.0F * (LINES_COUNT + 1.0F));
 
-    for(int i = 0; i < screen_width; i++) {
+    for(int i = 0; std::cmp_less(i, screen_width); i++) {
         const float normalized_position = static_cast<float>(i) / static_cast<float>(screen_width - 1);
 
         // Base position - horizontal line at calculated center

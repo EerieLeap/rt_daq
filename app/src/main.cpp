@@ -98,11 +98,11 @@ LOG_MODULE_REGISTER(main_logger);
 
 constexpr uint32_t SLEEP_TIME_MS = 10000;
 
-void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus_configuration_manager);
-void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager);
-void SetupLoggingConfiguration(
-    std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager,
-    std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager
+static void SetupCanbusConfiguration(const std::shared_ptr<CanbusConfigurationManager>& canbus_configuration_manager);
+static void SetupTestSensors(const std::shared_ptr<SensorsConfigurationManager>& sensors_configuration_manager);
+static void SetupLoggingConfiguration(
+    const std::shared_ptr<SensorsConfigurationManager>& sensors_configuration_manager,
+    const std::shared_ptr<LoggingConfigurationManager>& logging_configuration_manager
 );
 
 // NOTE: ADC reading timing for ESP32S3:
@@ -142,7 +142,7 @@ int main(void) {
     display_controller->Initialize();
 
     std::shared_ptr<SdmmcService> sd_fs_service = nullptr;
-    auto sd_fs_mp = DtFs::GetSdFsMp();
+    auto* sd_fs_mp = DtFs::GetSdFsMp();
     if(sd_fs_mp != nullptr) {
         sd_fs_service = std::make_shared<SdmmcService>(sd_fs_mp, DtFs::GetSdDiskName());
         sd_fs_service->RegisterIsSdCardPresentHandler(DtFs::IsSdCardPresent);
@@ -348,7 +348,7 @@ int main(void) {
     return 0;
 }
 
-void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus_configuration_manager) {
+void SetupCanbusConfiguration(const std::shared_ptr<CanbusConfigurationManager>& canbus_configuration_manager) {
     const auto canbus_configuration = make_shared_pmr<CanbusConfiguration>(Mrm::GetExtPmr());
     canbus_configuration->com_configuration.bus_channel = 0;
 
@@ -483,7 +483,7 @@ void SetupCanbusConfiguration(std::shared_ptr<CanbusConfigurationManager> canbus
     canbus_configuration_manager->Update(*canbus_configuration);
 }
 
-void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager) {
+void SetupTestSensors(const std::shared_ptr<SensorsConfigurationManager>& sensors_configuration_manager) {
     // Test Sensors
 
     const auto sensor_1 = make_shared_pmr<Sensor>(Mrm::GetExtPmr(), "sensor_1");
@@ -599,8 +599,8 @@ void SetupTestSensors(std::shared_ptr<SensorsConfigurationManager> sensors_confi
 }
 
 void SetupLoggingConfiguration(
-    std::shared_ptr<SensorsConfigurationManager> sensors_configuration_manager,
-    std::shared_ptr<LoggingConfigurationManager> logging_configuration_manager
+    const std::shared_ptr<SensorsConfigurationManager>& sensors_configuration_manager,
+    const std::shared_ptr<LoggingConfigurationManager>& logging_configuration_manager
 ) {
 
     const auto sensors = sensors_configuration_manager->Get();

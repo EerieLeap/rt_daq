@@ -20,10 +20,10 @@ struct PVector {
 class DotPathAnimation : public IAnimation {
 private:
     std::shared_ptr<Cfb> cfb_;
-    float time_;
+    float time_{ 0.0F };
 
     static constexpr int NUMBER_OF_JUMPS = 90;
-    static constexpr float DOT_COUNT = 50.0f;
+    static constexpr float DOT_COUNT = 50.0F;
 
     std::vector<PVector> positions_;
     std::vector<float> sizes_;

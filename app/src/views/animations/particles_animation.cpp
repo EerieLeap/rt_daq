@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <utility>
 
 #include "views/animations/utilities/animation_math_helpers.h"
 
@@ -18,20 +19,20 @@ struct Dot {
     float phase_offset;
 };
 
-Dot dots[NUM_DOTS];
+static Dot dots[NUM_DOTS];
 
 ParticlesAnimation::ParticlesAnimation(std::shared_ptr<Cfb> cfb) :
     cfb_(std::move(cfb)),
-    frame_(0),
+    ,
     rng_(1234) {}
 
 void ParticlesAnimation::Initialize() {
     std::uniform_real_distribution<float> dist(0.0F, 10.0F);
 
-    for(int i = 0; i < NUM_DOTS; i++) {
+    for(int i = 0; std::cmp_less(i, NUM_DOTS); i++) {
         dots[i].seed_x = dist(rng_);
         dots[i].seed_y = dist(rng_);
-        dots[i].phase_offset = ((float)i / NUM_DOTS) * AnimationMathHelpers::PI * 2;
+        dots[i].phase_offset = (static_cast<float>(i) / NUM_DOTS) * AnimationMathHelpers::PI * 2;
     }
 }
 
@@ -45,19 +46,19 @@ void ParticlesAnimation::Animate() {
 void ParticlesAnimation::AnimateSineParticles(uint32_t frame) {
     const float time = frame / 120.0F;
 
-    for(int i = 0; i < NUM_DOTS; i++) {
+    for(auto& dot : dots) {
         /* Horizontal motion */
-        const float progress = fmodf(time + dots[i].phase_offset / (AnimationMathHelpers::PI * 2), 1.0F);
-        const uint16_t x = (uint16_t)(progress * cfb_->GetXRes());
+        const float progress = fmodf(time + dot.phase_offset / (AnimationMathHelpers::PI * 2), 1.0F);
+        const uint16_t x = static_cast<uint16_t>(progress * cfb_->GetXRes());
 
         /* Multiple sine waves at different frequencies */
-        const float freq1 = 0.1F + dots[i].seed_x * 0.05F;
-        const float freq2 = 0.15F + dots[i].seed_y * 0.05F;
+        const float freq1 = 0.1F + dot.seed_x * 0.05F;
+        const float freq2 = 0.15F + dot.seed_y * 0.05F;
 
         const float wave1 = sinf(x * freq1 + time * AnimationMathHelpers::PI * 2);
         const float wave2 = sinf(x * freq2 - time * AnimationMathHelpers::PI * 2 * 0.5F);
 
-        const uint16_t y = cfb_->GetYRes() / 2 + (uint16_t)((wave1 + wave2) * 7.0F);
+        const uint16_t y = cfb_->GetYRes() / 2 + static_cast<uint16_t>((wave1 + wave2) * 7.0F);
 
         if(x >= 0 && x < cfb_->GetXRes() && y >= 0 && y < cfb_->GetYRes())
             cfb_->DrawPoint({ x, y });
