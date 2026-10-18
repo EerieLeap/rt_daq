@@ -22,6 +22,7 @@ Checks: >
   -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-c-copy-assignment-signature,
+  -cppcoreguidelines-explicit-constructor,
   -cppcoreguidelines-explicit-virtual-functions,
   -cppcoreguidelines-macro-to-enum,
   -cppcoreguidelines-narrowing-conversions,
@@ -50,6 +51,7 @@ Checks: >
   -performance-enum-size,
   -portability-template-virtual-member-function,
 
+  -misc-explicit-constructor,
   -misc-include-cleaner,
   -misc-non-private-member-variables-in-classes,
   -misc-override-with-different-visibility,
@@ -66,7 +68,7 @@ Checks: >
   -readability-trailing-comma
 
 # Reasons, by group above:
-# 1. Aliases of bugprone-narrowing-conversions, modernize-use-override, modernize-use-default-member-init,
+# 1. Aliases of google-explicit-constructor (two more in clang-tidy 23), bugprone-narrowing-conversions, modernize-use-override, modernize-use-default-member-init,
 #    modernize-macro-to-enum, modernize-avoid-c-arrays, performance-noexcept-*, misc-non-private-member-
 #    variables-in-classes; plus bugprone-easily-swappable-parameters, which flags most multi-argument APIs,
 #    and the analyzer's EnumCastOutOfRange, which reports every combination of a bitmask enum's flags.
