@@ -29,23 +29,41 @@ logging control, its display controller and its build configuration.
 ([boot sequence](../modules/eerie_leap_rt_core/docs/README.md#boot-sequence)); the parts that
 are this application's choices:
 
-1. Event channels (`InitializeEventChannels()`): the application bus is constructed and `Sensors`
+1. The DFU controller (`CONFIG_EERIE_LEAP_CONTROLLER_DFU`, on with MCUboot), before anything can fail or
+   hang. A confirmed image only has its slot trailer read; a new, unconfirmed one (a test boot after
+   an update) arms the hardware watchdog and a boot deadline. Its liveness probes are the work queues
+   the unit depends on: the configuration work queue (registered as soon as it runs) and the CDMP
+   work queue (once the CAN controller initialized and started and its COM service runs; none
+   otherwise). `ReportBootComplete()` comes after sensor processing and the CAN scheduler have
+   started, and only when the management controller initialized and SMP over CAN is bound to a
+   claimed CDMP ID (`CanbusComService::IsSmpBound()`; this unit has no BLE). An unconfirmed image
+   waits for that binding, polling every 100 ms for up to half of `EERIE_LEAP_DFU_BOOT_DEADLINE_MS`; a
+   confirmed one does not wait. The unconfirmed image then confirms itself after
+   `EERIE_LEAP_DFU_CONFIRM_DELAY_MS`. A `Run()` that returns early or throws never reports, so the
+   watchdog resets the unit and MCUboot reverts. See rt_core's
+   [dfu.md](../modules/eerie_leap_rt_core/docs/dfu.md).
+
+   **Trade-off:** a unit gets its CDMP ID, and with it the SMP binding, only when another unit
+   answers on the bus (a unit alone on a bus never goes online). Such a unit cannot prove that it can
+   be managed, so an update of it reverts. Update an rt_daq on a bus with at least one other CDMP
+   unit (the gauge, or a second rt_daq).
+2. Event channels (`InitializeEventChannels()`): the application bus is constructed and `Sensors`
    and `Logging` are registered with `EventChannelRegistry`. Channels drop every publish until a
    bus carries them, so this comes before anything publishes or subscribes.
-2. Device tree features requested: internal FS, SD FS, GPIO, ADC, display, CAN.
-3. The display is initialized first so the idle animation runs while the rest boots. The display
+3. Device tree features requested: internal FS, SD FS, GPIO, ADC, display, CAN.
+4. The display is initialized first so the idle animation runs while the rest boots. The display
    controller's work queue runs at priority 6, below sensor processing.
-4. The SD service is created when the board has a card slot. Its presence monitor is not started:
+5. The SD service is created when the board has a card slot. Its presence monitor is not started:
    on the SPI card interface the status polling interrupts logging. The shared `AssetsManager`
    follows the file systems: the CAN, sensors and logging controllers register the asset kinds
    they own with it (CAN and sensor scripts, logs; only with an SD service), and the management
    controller serves them in the SMP `assets` group.
-5. The configuration work queue is 8192 bytes at priority 5. Every start and stop of the log
+6. The configuration work queue is 8192 bytes at priority 5. Every start and stop of the log
    writer runs there, whatever requested it, besides the configuration applies, which restart
    sensor processing and, before `LoggingController::Start()` or for a start requested after an
    update, the writer; a start writes the MDF header (5728 bytes measured at 6144). The
    display controller starts following the logging status on it right away.
-6. System, ADC, GPIO, CAN, sensors, the sensor events publisher, logging (only with an SD file
+7. System, ADC, GPIO, CAN, sensors, the sensor events publisher, logging (only with an SD file
    system; its `Start()` follows the setup hook, so what the unit stores while it starts stops no
    logging), management, CAN scheduler. The sensor processing service is registered with the ADC
    controller (paused during calibration) and with the CAN controller (restarted on CAN
@@ -53,7 +71,7 @@ are this application's choices:
    controller (stopped around a sensors or ADC restart, and started again on the new generation
    while logging is still wanted), and only after the
    logging controller initialized: a controller that failed is dropped, and nothing is wired to it.
-7. Sensor processing and the CAN scheduler are started last. The autostart, when configured,
+8. Sensor processing and the CAN scheduler are started last. The autostart, when configured,
    requests a logging start; `main` then sleeps.
 
 `main.cpp` also carries three helpers, `SetupCanbusConfiguration`, `SetupTestSensors` and
