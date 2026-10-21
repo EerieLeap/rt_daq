@@ -34,7 +34,6 @@
 #include "domain/sensor_domain/configuration/sensors_configuration_manager.h"
 #include "domain/sensor_domain/services/sensor_events_publisher.h"
 #include "domain/sensor_domain/utilities/sensor_readings_frame.hpp"
-#include "domain/system_domain/configuration/system_configuration_manager.h"
 
 #include "controllers/adc_controller.h"
 #include "controllers/canbus_controller.h"
@@ -82,7 +81,6 @@ using namespace eerie_leap::domain::configuration_domain::services;
 using namespace eerie_leap::domain::canbus_domain::models;
 using namespace eerie_leap::domain::canbus_domain::services;
 using namespace eerie_leap::domain::canbus_domain::configuration;
-using namespace eerie_leap::domain::system_domain::configuration;
 using namespace eerie_leap::domain::sensor_domain::models;
 using namespace eerie_leap::domain::sensor_domain::configuration;
 using namespace eerie_leap::domain::sensor_domain::services;
@@ -316,12 +314,10 @@ static int Run() {
     }
 
     // Constructed after every controller that registers a configuration manager.
-    const auto system_configuration = system_controller->GetConfigurationManager()->Get();
     const auto management_controller = std::make_shared<ManagementController>(
         configuration_service, config_work_queue_thread,
         canbus_com_service != nullptr ? canbus_com_service->GetNetworkInfo() : nullptr,
-        system_configuration != nullptr ? system_configuration->build_number : 0, sensors_controller->GetCapabilities(),
-        sd_fs_service, assets_manager
+        sensors_controller->GetCapabilities(), sd_fs_service, assets_manager
     );
     if(management_controller->Initialize() != 0)
         LOG_ERR("Failed to initialize the management controller.");

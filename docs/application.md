@@ -20,7 +20,7 @@ logging control, its display controller and its build configuration.
 | `app/boards/<board>.conf`, `.overlay` | Per-board options and device tree; see [boards.md](boards.md). |
 | `app/patches/zephyr/` | Patches applied to the Zephyr checkout at configure time, in addition to rt_core's. |
 | `app/CMakeLists.txt` | Applies the patches, registers rt_core and its nested modules, and keeps the zcbor generator helper. |
-| `app/VERSION` | Zephyr application version (1.0.0). |
+| `app/VERSION` | The one source of the software version (0.0.1): the `device` group's `sw` and `build`, the log file header's tool version and MCUboot's image version. |
 | `boards/` | The custom board definitions, `esp32s3_pm_hw_02` and `devebox_stm32h743_hw_20`. |
 
 ## Boot sequence
@@ -104,9 +104,9 @@ runs on the configuration work queue, one at a time.
 
 The supervisor starts the writer with a logger it builds each time from the current sensors and
 logging configurations. It sets the file header's metadata itself, from the tool ID rt_daq passes
-(`rt_daq`): device name `CONFIG_BOARD`, tool `rt_daq` at the software version from `prj.conf`
-(`EERIE_LEAP_SW_VERSION_*`, the same one the packed `sw_version` property carries; `app/VERSION` is
-not used), `EERIE_LEAP_PRODUCT_ID`, the CDMP device ID (0 until the unit has claimed one), the
+(`rt_daq`): device name `CONFIG_BOARD`, tool `rt_daq` at the software version from `app/VERSION`
+(`EERIE_LEAP_SW_VERSION_*` default to it, the same one the packed `sw_version` property carries;
+`prj.conf` does not set them), `EERIE_LEAP_PRODUCT_ID`, the CDMP device ID (0 until the unit has claimed one), the
 packed hardware and software versions, and the CRC of the stored sensors configuration as
 `sensors_configuration_hash` (0 when that configuration was rejected at boot and defaults run
 instead). What the logger writes from them is in rt_core's
