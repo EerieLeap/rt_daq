@@ -1,0 +1,94 @@
+/*
+ * Flash partition table of the EerieLeap PM HW 0.2 and of the ESP32-S3 DevKitC-1 N8R2 (both 8 MB), two
+ * equal image slots for MCUboot (swap using move). Plan: FIRMWARE_UPDATE_PLAN.md (the gauge's
+ * dev_docs/plans), D2.
+ *
+ * It replaces the stock table (espressif/partitions_0x0_amp.dtsi, the 4 MB one, which the board DTS
+ * includes although the flash is 8 MB) completely: the appcpu and lpcore slots go, nothing builds an
+ * APP CPU or LP core image. The stock labels stay, so zephyr,code-partition = &slot0_partition still
+ * resolves.
+ *
+ * Two images include this file, and it holds the flash layout only (no fstab, no aliases):
+ *   - the application, from app/boards/esp32s3_pm_hw_02_procpu.overlay (and the DevKitC's overlay);
+ *   - MCUboot, from app/sysbuild.cmake (mcuboot_EXTRA_DTC_OVERLAY_FILE).
+ * The two must see the same layout, which is why it is one file. The DevKitC's overlay includes this
+ * same file (app/boards/partitions/esp32s3_devkitc_procpu.dtsi is a one-line include of it).
+ *
+ *   0x000000  boot_partition     64 KB    MCUboot
+ *   0x010000  sys_partition      64 KB
+ *   0x020000  slot0_partition    2560 KB  the running image
+ *   0x2a0000  slot1_partition    2560 KB  the candidate or the backup
+ *   0x520000  intfs0_partition   2624 KB  LittleFS
+ *   0x7b0000  storage_partition  192 KB   unused (rt_daq has no settings, NVS or Bluetooth)
+ *   0x7e0000  unused             124 KB
+ *   0x7ff000  coredump_partition 4 KB
+ *
+ * Every slot starts on a 64 KB boundary (the MMU page of the ESP32), which keeps direct-XIP open.
+ * Swap using move spends one sector and the status area of the slots: the largest image is
+ * (slot size / 4 KB - 1) sectors minus the trailer.
+ *
+ * storage_partition is kept at the stock position of the other units' tables, for layout parity; nothing
+ * in rt_daq uses it.
+ *
+ * Before MCUboot the stock 4 MB table was in force with the 8 MB flash: storage at 0x3b0000, coredump
+ * at 0x3ff000 and a 1 MB LittleFS at 0x700000. All three moved, so a unit needs the one-time USB flash
+ * with an erase (docs/getting-started.md, "Moving a unit from simple boot to MCUboot").
+ */
+
+&flash0 {
+	/* Drop the stock table whole, so no stock node can overlap a node below. */
+	/delete-node/ partitions;
+
+	partitions {
+		compatible = "fixed-partitions";
+		ranges;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			compatible = "zephyr,mapped-partition";
+			label = "mcuboot";
+			reg = <0x0 DT_SIZE_K(64)>;
+		};
+
+		sys_partition: partition@10000 {
+			compatible = "zephyr,mapped-partition";
+			label = "sys";
+			reg = <0x10000 DT_SIZE_K(64)>;
+		};
+
+		slot0_partition: partition@20000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-0";
+			reg = <0x20000 DT_SIZE_K(2560)>;
+		};
+
+		slot1_partition: partition@2a0000 {
+			compatible = "zephyr,mapped-partition";
+			label = "image-1";
+			reg = <0x2a0000 DT_SIZE_K(2560)>;
+		};
+
+		/* Up to the storage partition. */
+		intfs0_partition: partition@520000 {
+			compatible = "zephyr,mapped-partition";
+			label = "intfs0_storage";
+			reg = <0x520000 DT_SIZE_K(2624)>;
+		};
+
+		storage_partition: partition@7b0000 {
+			compatible = "zephyr,mapped-partition";
+			label = "storage";
+			reg = <0x7b0000 DT_SIZE_K(192)>;
+		};
+
+		/* The label has to stay "coredump_partition": the flash-partition coredump backend binds to the
+		 * DT node label (subsys/debug/coredump/coredump_backend_flash_partition.c).
+		 */
+		coredump_partition: partition@7ff000 {
+			compatible = "zephyr,mapped-partition";
+			label = "coredump";
+			reg = <0x7ff000 DT_SIZE_K(4)>;
+		};
+	};
+};

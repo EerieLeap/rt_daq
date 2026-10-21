@@ -1,0 +1,7 @@
+/*
+ * Flash partition table of the ESP32-S3 DevKitC (8 MB): the PM board's, which has the same flash.
+ * See esp32s3_pm_hw_02_procpu.dtsi for the layout. This file exists so that the application's
+ * overlay and app/sysbuild.cmake (which finds the table of a board by its name) both have one.
+ */
+
+#include "esp32s3_pm_hw_02_procpu.dtsi"
