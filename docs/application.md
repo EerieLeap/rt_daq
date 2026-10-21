@@ -18,6 +18,9 @@ logging control, its display controller and its build configuration.
 | `app/bench.conf` | The bench build's Kconfig fragment: shell, SMP over the console, stack reports, bench commands (see [Development aids](#development-aids)). |
 | `app/prj.conf` | Product identity, which rt_core systems are built, heap, stacks, filesystems, CAN FD. |
 | `app/boards/<board>.conf`, `.overlay` | Per-board options and device tree; see [boards.md](boards.md). |
+| `app/boards/partitions/<board>.dtsi` | The ESP32-S3 boards' flash partition table, included by the board's overlay and handed to MCUboot by `app/sysbuild.cmake` (see [boards.md](boards.md#flash-layout-of-the-esp32-s3-boards)). |
+| `app/sysbuild.conf`, `app/sysbuild.cmake`, `app/sysbuild/mcuboot.conf` | MCUboot for the ESP32-S3 boards: swap-using-move, ECDSA P-256, the development key, MCUboot's partition table and its driver trims (see [getting-started.md](getting-started.md#esp32-builds-flash-layout-and-signing)). |
+| `scripts/check_image_sizes.py` | Run at the end of every sysbuild build: MCUboot against its boot partition, the signed application against `slot0` minus the swap trailer. |
 | `app/patches/zephyr/` | Patches applied to the Zephyr checkout at configure time, in addition to rt_core's. |
 | `app/CMakeLists.txt` | Applies the patches, registers rt_core and its nested modules, and keeps the zcbor generator helper. |
 | `app/VERSION` | The one source of the software version (0.0.1): the `device` group's `sw` and `build`, the log file header's tool version and MCUboot's image version. |
@@ -269,9 +272,10 @@ Zephyr's `SENSOR_SHELL`, which registers a `sensor` command too.
 `app/bench.conf` is the Kconfig fragment for a bench build; it is not for a shipped build:
 
 ```shell
-west build -d build_bench -b esp32s3_pm_hw_02/esp32s3/procpu app -- -DEXTRA_CONF_FILE=bench.conf
+west build -d build_bench -b esp32s3_pm_hw_02/esp32s3/procpu --sysbuild app -- -DEXTRA_CONF_FILE=bench.conf
 ```
 
+Under `--sysbuild` the unprefixed `EXTRA_CONF_FILE` reaches the application image only, not MCUboot.
 `EXTRA_CONF_FILE` stays in the CMake cache: build the bench image in a directory of its own, or leave it
 with `-p always`, so a later build of the same directory is not a bench build by accident.
 

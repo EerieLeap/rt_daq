@@ -8,9 +8,9 @@ they are configured is documented in rt_core:
 
 | Page | Covers |
 | --- | --- |
-| [getting-started.md](getting-started.md) | Dev container, building, running in simulators, flashing, debugging, tests |
+| [getting-started.md](getting-started.md) | Dev container, building (the ESP32 sysbuild, flash layout and signing), running in simulators, flashing and moving a unit to MCUboot, debugging, tests |
 | [application.md](application.md) | What the app adds to rt_core: wiring, its event bus, logging on rt_core's controller (triggers, bench aids), the display controller, `prj.conf`, patches |
-| [boards.md](boards.md) | Supported boards, what each provides, the PM board's inputs and quirks |
+| [boards.md](boards.md) | Supported boards, what each provides, the ESP32-S3 flash layout, the PM board's inputs and quirks |
 
 Elsewhere in the repository:
 

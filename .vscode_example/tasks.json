@@ -15,13 +15,21 @@
         {
             "label": "Build EL02",
             "type": "shell",
-            "command": "west build -p auto -b esp32s3_pm_hw_02/esp32s3/procpu ./app",
+            "command": "west build -p auto -b esp32s3_pm_hw_02/esp32s3/procpu --sysbuild ./app",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "problemMatcher": ["$gcc"],
-            "detail": "Build the Zephyr project using ESP32S3 PM HW02"
+            "detail": "Build the Zephyr project using ESP32S3 PM HW02 with MCUboot (sysbuild: build/mcuboot and build/app)"
+        },
+        {
+            "label": "Build EL02 Bench",
+            "type": "shell",
+            "command": "west build -d build_bench -p auto -b esp32s3_pm_hw_02/esp32s3/procpu --sysbuild ./app -- -DEXTRA_CONF_FILE=bench.conf",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Bench build (shell, SMP over the console, stack reports) in build_bench, with MCUboot"
         },
         {
             "label": "Build STM32H7",
@@ -48,29 +56,23 @@
         {
             "label": "Build ESP32S3",
             "type": "shell",
-            "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": ["$gcc"],
-            "detail": "Build the Zephyr project using ESP32S3 Devkit-C"
-        },
-        {
-            "label": "Build ESP32S3 With Bootloader",
-            "type": "shell",
             "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu --sysbuild ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "problemMatcher": ["$gcc"],
-            "detail": "Build the Zephyr project using ESP32S3 Devkit-C",
+            "detail": "Build the Zephyr project using ESP32S3 Devkit-C with MCUboot (sysbuild)"
+        },
+        {
+            "label": "Check image sizes",
+            "type": "shell",
+            "command": "scripts/check_image_sizes.py build",
             "options": {
-                "statusbar": {
-                    "hide": true
-                }
-            }
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "none",
+            "detail": "MCUboot against its boot partition and the signed application against slot0 minus the swap trailer, for the last ESP32 build (runs at the end of every sysbuild build)"
         },
         {
             "label": "Build QEMU Cortex A9",

@@ -1,0 +1,56 @@
+name: Hardware build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: hardware-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build-only: both ESP32-S3 boards with MCUboot, signed with the committed development key. The lint
+  # job's native_sim build cannot see a partition table that no longer fits, MCUboot outgrowing its
+  # boot partition, or a driver that does not link into MCUboot; the sysbuild build ends with
+  # scripts/check_image_sizes.py, which fails on the first two.
+  hardware-build:
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - esp32s3_pm_hw_02/esp32s3/procpu
+          - esp32s3_devkitc/esp32s3/procpu
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: rt_daq
+          # rt_core and its nested submodules (Lua wrapper, expression engine) are part of the build.
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Set up Zephyr
+        uses: zephyrproject-rtos/action-zephyr-setup@v1
+        with:
+          app-path: rt_daq
+          toolchains: xtensa-espressif_esp32s3_zephyr-elf
+
+      # imgtool's requirements: MCUboot signs the application with it.
+      - name: Install the build tools
+        run: west packages pip --install
+
+      # The Wi-Fi and Bluetooth libraries of hal_espressif are binary blobs.
+      - name: Fetch the Espressif blobs
+        run: west blobs fetch hal_espressif
+
+      - name: Build ${{ matrix.board }}
+        working-directory: rt_daq
+        run: west build -p always -b ${{ matrix.board }} --sysbuild ./app -d build -o=-j4

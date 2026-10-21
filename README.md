@@ -36,4 +36,18 @@ Open the folder in the dev container (`.devcontainer/`, or `example.docker-compo
 west build -p auto -b native_sim ./app && west build -t run
 ```
 
-See [docs/getting-started.md](docs/getting-started.md) for hardware targets, flashing and debugging.
+The ESP32-S3 boards run behind the MCUboot bootloader (two signed image slots for firmware updates over
+SMP, see rt_core's [dfu.md](modules/eerie_leap_rt_core/docs/dfu.md)), so **their builds always use
+`--sysbuild`**:
+
+```shell
+west build -p auto -b esp32s3_pm_hw_02/esp32s3/procpu --sysbuild ./app
+west flash --esp-device /dev/ttyACM0
+```
+
+A unit that was flashed before MCUboot needs a one-time USB flash with a chip erase, because the file
+system moved: back up its configurations first, see
+[Moving a unit from simple boot to MCUboot](docs/getting-started.md#moving-a-unit-from-simple-boot-to-mcuboot).
+
+See [docs/getting-started.md](docs/getting-started.md) for hardware targets, the flash layout and
+signing, flashing and debugging.
