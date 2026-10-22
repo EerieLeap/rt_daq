@@ -96,7 +96,7 @@ jobs:
 
       - name: Install the build tools
         run: |
-          west packages pip --install
+          west packages pip --install --ignore-venv-check
 
       - name: Fetch the Espressif blobs
         run: west blobs fetch hal_espressif

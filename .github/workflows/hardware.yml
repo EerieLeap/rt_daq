@@ -45,7 +45,7 @@ jobs:
 
       # imgtool's requirements: MCUboot signs the application with it.
       - name: Install the build tools
-        run: west packages pip --install
+        run: west packages pip --install --ignore-venv-check
 
       # The Wi-Fi and Bluetooth libraries of hal_espressif are binary blobs.
       - name: Fetch the Espressif blobs
