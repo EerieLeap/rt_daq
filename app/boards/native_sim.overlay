@@ -7,6 +7,10 @@
 		can0 = &can_loopback0;
 	};
 
+	chosen {
+		zephyr,tracing-uart = &uart0;
+	};
+
 	fstab {
 		compatible = "zephyr,fstab";
 		intfs0: intfs0 {

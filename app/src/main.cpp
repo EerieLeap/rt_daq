@@ -237,7 +237,7 @@ static int Run() {
         fs_service, config_work_queue_thread, configuration_service, sd_fs_service, assets_manager
     );
     // TODO: For test purposes only
-    // if(canbus_controller->Initialize(SetupCanbusConfiguration) != 0)
+    // if(canbus_controller->Initialize(SetupCanbusConfiguration) == 0)
     const bool is_can_initialized = canbus_controller->Initialize() == 0;
     if(!is_can_initialized)
         LOG_ERR("Failed to initialize the CANBus controller.");
