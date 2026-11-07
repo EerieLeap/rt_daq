@@ -1,0 +1,84 @@
+// Teensy 4.1 (i.MX RT1062) for Renode, on top of Renode's i.MX RT1064 description: the two parts share the core, the
+// memories and the peripherals, the 1064 only adds a second FlexSPI flash. Goes with snippets/renode (the Zephyr side)
+// and teensy41.resc.
+using "platforms/cpus/imxrt1064.repl"
+
+// 600 MHz core: Zephyr's SYS_CLOCK_HW_CYCLES_PER_SEC on the Teensy, so that the systick runs at the rate Zephyr assumes.
+nvic:
+    systickFrequency: 600000000
+
+// The FlexRAM OCRAM at 0x20280000 (Zephyr's `ocram`, 256 KB with the default bank split): the 1064 file only tags it.
+// Zephyr's main RAM on the bench is the 512 KB `ocram2` at 0x20200000, which the 1064 file maps.
+ocram: Memory.MappedMemory @ sysbus 0x20280000
+    size: 0x80000
+
+// Boot flash: the 8 MB W25Q64JV on FlexSPI A, as plain memory for XIP (the 1064 EVK file does the same for its flash).
+// The FlexSPI registers stay, but no flash model answers behind them, so the renode snippet switches the NOR driver off.
+flex_spi: @ sysbus 0x402A8000
+
+flash_mem: Memory.MappedMemory @ sysbus 0x60000000
+    size: 0x800000
+
+// RAM that exists only here: the simulated flash of the renode snippet (littlefs configuration store and a flash disk).
+sim_flash_ram: Memory.MappedMemory @ sysbus 0x20400000
+    size: 0x200000
+
+// GPIO interrupts: the 1064 file leaves the ports unwired. The RT1060 has two vectors per port (pins 0-15, 16-31); the
+// model has one output, wired to the lower vector, which Zephyr's driver serves for the whole port.
+gpio1:
+    IRQ -> nvic@80
+
+gpio3:
+    IRQ -> nvic@84
+
+gpio5:
+    IRQ -> nvic@88
+
+// Header pins of the bench (app/boards/teensy41.overlay).
+// Pin 13: the board LED (also LPSPI4 SCK).
+board_led: Miscellaneous.LED @ gpio2 3
+
+gpio2:
+    IRQ -> nvic@82
+    3 -> board_led@0
+
+gpio4:
+    IRQ -> nvic@86
+
+// DIO_IN0 .. DIO_IN7: pull-up inputs, a press pulls the pin low (`di_0 Press`, `di_0 Release`, `di_0 Toggle`).
+di_0: Miscellaneous.Button @ gpio4
+    invert: true
+    -> gpio4@4
+
+di_1: Miscellaneous.Button @ gpio4
+    invert: true
+    -> gpio4@5
+
+di_2: Miscellaneous.Button @ gpio4
+    invert: true
+    -> gpio4@6
+
+di_3: Miscellaneous.Button @ gpio4
+    invert: true
+    -> gpio4@7
+
+di_4: Miscellaneous.Button @ gpio4
+    invert: true
+    -> gpio4@8
+
+di_5: Miscellaneous.Button @ gpio2
+    invert: true
+    -> gpio2@10
+
+di_6: Miscellaneous.Button @ gpio2
+    invert: true
+    -> gpio2@18
+
+di_7: Miscellaneous.Button @ gpio2
+    invert: true
+    -> gpio2@12
+
+// Pin 7: the user button.
+user_button: Miscellaneous.Button @ gpio2
+    invert: true
+    -> gpio2@17

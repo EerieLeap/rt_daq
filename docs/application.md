@@ -269,6 +269,14 @@ gauge's remote path sees it. A unit with another CAN configuration needs such a 
 has `debounce_ms` or `Toggle` set exercises the conditioning on the polled value. The option excludes
 Zephyr's `SENSOR_SHELL`, which registers a `sensor` command too.
 
+`APP_MEMORY_SHELL` adds `mem heaps`: the size, use and peak use of every heap the firmware
+registered (`SYS_HEAP_ARRAY_SIZE`, with `SYS_HEAP_RUNTIME_STATS`), each tagged `kernel`, `libc` or
+`other`. The kernel heap holds `k_malloc`, the dynamic thread stacks and, on a board without a
+shared multi-heap, rt_core's PMR allocations; the libc arena holds `malloc` and C++ `new`; the
+small `other` heaps belong to Zephyr subsystems (littlefs's file cache among them). Zephyr's
+`kernel heap` shows the kernel heap only and `kernel thread stacks` the stacks; the procedure and
+the Teensy figures are in [getting-started.md](getting-started.md#profiling-memory).
+
 `app/bench.conf` is the Kconfig fragment for a bench build; it is not for a shipped build:
 
 ```shell
@@ -288,10 +296,10 @@ with `-p always`, so a later build of the same directory is not a bench build by
 | `SHELL_BACKEND_SERIAL_FORCE_TX_BLOCKING_MODE` | Shell output is polled too. Interrupt-driven transmit waits for a host to read the USB-Serial-JTAG FIFO and blocks the shell thread while no host has the port open. |
 | `THREAD_ANALYZER_AUTO`, `_AUTO_INTERVAL=10`, `_AUTO_STACK_SIZE=3072`, `_PRINT_THREAD_PRIORITY` | A report of every thread's stack peak every 10 s, through the log. `prj.conf` already enables the analyzer; it has no effect on native_sim. |
 | `STACK_SENTINEL` | The S3 has no stack guard; a sentinel stops the unit with the thread's name when a stack overflows. |
-| `APP_LOGGING_SHELL`, `APP_SENSOR_SHELL` | The bench commands above. |
+| `APP_LOGGING_SHELL`, `APP_SENSOR_SHELL`, `APP_MEMORY_SHELL` | The bench commands above. |
 
 The fragment costs 14376 B of internal RAM (`dram0_0_seg`, 48.2 % to 51.8 %) and 83552 B of flash on the PM
-board. The libc heap is the internal RAM that the image leaves (`COMMON_LIBC_MALLOC_ARENA_SIZE=-1`), so it
+board, and 12208 B of RAM and 61932 B of flash on the Teensy 4.1 (Renode variant, an optimized build). The libc heap is the internal RAM that the image leaves (`COMMON_LIBC_MALLOC_ARENA_SIZE=-1`), so it
 shrinks by about the same amount. The stack peaks of a bench build are those of the shipped logging path plus the shell thread; the
 shell and the analyzer thread add stacks and a little timing.
 

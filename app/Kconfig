@@ -1,3 +1,10 @@
+# Board defaults for stock Zephyr boards (a board .conf cannot set a symbol a snippet may deactivate: the
+# renode snippet drops the MCP2518FD, and an assignment to an inactive symbol fails the Kconfig step).
+# Defined before Kconfig.zephyr so that these defaults come first.
+config CAN_MCP251XFD_INT_THREAD_STACK_SIZE
+	int
+	default 2048 if BOARD_TEENSY41
+
 menu "Zephyr"
 source "Kconfig.zephyr"
 endmenu
@@ -64,5 +71,18 @@ config APP_SENSOR_SHELL
       it. Use a sensor no source writes, such as a CANBUS_INDICATOR on a
       signal no other unit sends. Zephyr's SENSOR_SHELL registers a 'sensor'
       command too, so the two exclude each other.
+
+config APP_MEMORY_SHELL
+    bool "Shell command to list the heaps"
+    depends on SHELL && SYS_HEAP_RUNTIME_STATS && SYS_HEAP_ARRAY_SIZE > 0
+    help
+      Adds 'mem heaps' to the Zephyr shell: size, use and peak use of every
+      heap the firmware registered. Two matter: the kernel heap, which holds
+      k_malloc, the dynamic thread stacks and, on a board without a shared
+      multi-heap, rt_core's PMR allocations (configurations, sensors, CAN
+      messages), and the libc arena behind malloc and C++ new. Zephyr's own
+      'kernel heap' command shows the kernel heap only; 'kernel thread
+      stacks' and the thread analyzer cover the stacks. See
+      docs/getting-started.md, "Profiling memory".
 
 endmenu

@@ -1,0 +1,382 @@
+/*
+ * Teensy 4.1 as the bench of the PM HW 1.0 processing module.
+ *
+ * The HW 1.0 pad plan (dev_docs/hw/planning/PM_HW_10_ARCHITECTURE.md, §3 and §7) was laid out so that every bus of the
+ * board lands on Teensy header pins. This overlay carries the HW 1.0 nodes with the Teensy's GPIO numbers; the board
+ * directory boards/eerieleap/pm_hw_10 will be derived from it. The console stays on LPUART6 (pins 0 RX, 1 TX, 115200);
+ * the SD card in the Teensy's socket stands in for the eMMC.
+ *
+ *   Teensy pin      Pad                   Function
+ *   0, 1            AD_B0_03, AD_B0_02    Console, LPUART6 RX and TX
+ *   2, 3, 4, 33, 5  EMC_04 .. EMC_08      DIO_IN0 .. DIO_IN4 (gpio4 4 .. 8)
+ *   6, 36, 32       B0_10, B1_02, B0_12   DIO_IN5 .. DIO_IN7 (gpio2 10, 18, 12)
+ *   7               B1_01                 User button (gpio2 17)
+ *   8               B1_00                 PCA9555 INT (gpio2 16)
+ *   9               B0_11                 MCP2518FD INT (gpio2 11)
+ *   10, 11, 12, 13  B0_00 .. B0_03        LPSPI4 CS, MOSI, MISO, SCK: MCP2518FD, CAN 2 (pin 13 is also the board LED)
+ *   14, 15, 20, 21  AD_B1_02/03/10/11     ADC1 inputs 7, 8, 15, 0: the board's VIN, 5V_A, CC1, CC2 senses
+ *   18, 19          AD_B1_01, AD_B1_00    LPI2C1 SDA, SCL: SSD1306 0x3C, RV-3028 0x52, PCA9555 0x20
+ *   22, 23, 40      AD_B1_08/09/04        uSDHC2 CMD, CLK, DATA0: ESP32-C6 over 1-bit SDIO (XIAO ESP32C6 D10, D8, D9)
+ *   24, 25          AD_B0_12, AD_B0_13    LPUART1 TX, RX: ESP32-C6 UART0 (XIAO D7, D6)
+ *   26, 27, 38, 39  AD_B1_14/15/12/13     LPSPI3 MOSI, SCK, CS, MISO: ADS7038 or TLA2518 (M4)
+ *   28              EMC_32                RV-3028 INT (gpio3 18)
+ *   30, 31          EMC_37, EMC_36        FlexCAN3 RX, TX: CAN 1 (FD), TJA1051T/3
+ *   34, 35          B1_13, B1_12          LPUART5 RX, TX: LIN (M9)
+ *   37              B1_03                 ESP32-C6 EN (gpio2 19, open drain, wire to the XIAO's TP8 pad)
+ *   SD socket       SD_B0_00 .. SD_B0_05  uSDHC1: SD card, FAT (board file)
+ *
+ * Pins 16, 17 and 41 (SDIO DATA2, DATA3 and DATA1 on the PCB) and 29 stay free: 4-bit SDIO is not possible on wires.
+ */
+
+#include <zephyr/dt-bindings/adc/adc.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+	aliases {
+		intfs0 = &intfs0;
+		sdfs0 = &sdfs0;
+		gpioc = &gpioc;
+		/* Stand-in until the ADS7038 driver exists (M4): the four internal ADC1 channels below. */
+		adc0 = &adc1;
+		can0 = &flexcan3;
+		can1 = &can1_mcp2518fd;
+		watchdog0 = &wdog0;
+		rtc = &rv3028_rtc;
+		sw0 = &user_button;
+	};
+
+	chosen {
+		/* The 512 KB OCRAM2 as the main RAM, as planned for the board; the board file picks the 256 KB FlexRAM OCRAM. */
+		zephyr,sram = &ocram2;
+		zephyr,canbus = &flexcan3;
+		zephyr,sdhc = &usdhc1;
+		zephyr,display = &ssd1306;
+	};
+
+	fstab {
+		compatible = "zephyr,fstab";
+
+		intfs0: intfs0 {
+			compatible = "zephyr,fstab,littlefs";
+			read-size = <16>;
+			prog-size = <16>;
+			cache-size = <64>;
+			lookahead-size = <32>;
+			block-cycles = <512>;
+			partition = <&intfs0_partition>;
+			mount-point = "/intfs0";
+			automount;
+		};
+
+		sdfs0: sdfs0 {
+			compatible = "zephyr,fstab,fatfs";
+			disk-access;
+			mount-point = "/SD:";
+		};
+	};
+
+	/*
+	 * DIO_IN0 .. DIO_IN7: the comparator outputs of the board (architecture §4.3), pull-up inputs on the bench. Child order
+	 * is the channel number. Pin 9 is not among them: it is the MCP2518FD interrupt.
+	 */
+	gpioc: gpioc {
+		compatible = "gpio-keys";
+
+		di_0: di_0 {
+			gpios = <&gpio4 4 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 2, EMC_04 */
+		};
+
+		di_1: di_1 {
+			gpios = <&gpio4 5 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 3, EMC_05 */
+		};
+
+		di_2: di_2 {
+			gpios = <&gpio4 6 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 4, EMC_06 */
+		};
+
+		di_3: di_3 {
+			gpios = <&gpio4 7 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 33, EMC_07 */
+		};
+
+		di_4: di_4 {
+			gpios = <&gpio4 8 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 5, EMC_08 */
+		};
+
+		di_5: di_5 {
+			gpios = <&gpio2 10 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 6, B0_10 */
+		};
+
+		di_6: di_6 {
+			gpios = <&gpio2 18 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 36, B1_02 */
+		};
+
+		di_7: di_7 {
+			gpios = <&gpio2 12 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 32, B0_12 */
+		};
+	};
+
+	/* The board's user button (architecture §4.11), on pin 7 here. Not read by rt_core today. */
+	buttons {
+		compatible = "gpio-keys";
+
+		user_button: button_0 {
+			gpios = <&gpio2 17 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 7, B1_01 */
+			label = "User button";
+			zephyr,code = <INPUT_KEY_0>;
+		};
+	};
+};
+
+/*
+ * Boot flash, 8 MB W25Q64JV on FlexSPI A: the application runs from the start (no MCUboot on the Teensy, its bootloader
+ * chip programs the flash), the littlefs configuration store takes 2 MB at 4 MB, 2 MB stay free. The FlexSPI NOR driver
+ * and the FlexSPI controller code run from ITCM while the flash is written.
+ */
+&w25q64jvxgim {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		intfs0_partition: partition@400000 {
+			label = "intfs0_storage";
+			reg = <0x400000 DT_SIZE_M(2)>;
+		};
+	};
+};
+
+/* Pins 22 and 23, FlexCAN1 in the board file, carry the co-processor's SDIO CMD and CLK. */
+&flexcan1 {
+	status = "disabled";
+};
+
+/* CAN 1 (FD): pins 31 TX and 30 RX, Adafruit CAN Pal (TJA1051T/3, 5 Mbit/s). The board's FD bus. */
+&flexcan3 {
+	status = "okay";
+
+	can-transceiver {
+		max-bitrate = <5000000>;
+	};
+};
+
+/*
+ * CAN 2: the MCP2518FD module of HW 0.2 (20 MHz crystal) on LPSPI4, hardware chip select PCS0 on pin 10, interrupt on
+ * pin 9. 8 MHz SPI as on HW 0.2 over wires; the board targets 17 MHz with a 40 MHz crystal.
+ */
+&lpspi4 {
+	status = "okay";
+
+	can1_mcp2518fd: mcp2518fd@0 {
+		compatible = "microchip,mcp251xfd";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		int-gpios = <&gpio2 11 GPIO_ACTIVE_LOW>;	/* pin 9, B0_11 */
+		osc-freq = <20000000>;
+		status = "okay";
+
+		can-transceiver {
+			max-bitrate = <8000000>;
+		};
+	};
+};
+
+/*
+ * LPSPI3 (pins 26 MOSI, 27 SCK, 38 CS, 39 MISO) is enabled by the board file and waits for the ADS7038 driver (M4):
+ * add the adc node here and point the adc0 alias at it.
+ */
+
+/*
+ * Internal ADC1 on the pins the board uses for its rail and CC senses (VIN, 5V_A, CC1, CC2). Until the ADS7038 driver
+ * exists they are the firmware's analog channels 0 .. 3: 3.3 V full scale, 12 bit, in pin order 14, 15, 20, 21.
+ */
+&adc1 {
+	status = "okay";
+	pinctrl-0 = <&pinmux_adc1>;
+	pinctrl-names = "default";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@7 {
+		reg = <7>;	/* pin 14, AD_B1_02 */
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+	};
+
+	channel@8 {
+		reg = <8>;	/* pin 15, AD_B1_03 */
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+	};
+
+	channel@f {
+		reg = <15>;	/* pin 20, AD_B1_10 */
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+	};
+
+	channel@0 {
+		reg = <0>;	/* pin 21, AD_B1_11 */
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+	};
+};
+
+/* Internal I2C, pins 19 SCL and 18 SDA: the HW 0.2 display module, the Pimoroni RV3028 breakout, a PCA9555 module. */
+&lpi2c1 {
+	status = "okay";
+	clock-frequency = <I2C_BITRATE_FAST>;
+
+	ssd1306: ssd1306@3c {
+		compatible = "solomon,ssd1306";
+		reg = <0x3c>;
+		width = <128>;
+		height = <32>;
+		segment-offset = <0>;
+		page-offset = <0>;
+		display-offset = <0>;
+		multiplex-ratio = <31>;
+		segment-remap;
+		com-invdir;
+		com-sequential;
+		prechargep = <0x22>;
+	};
+
+	/* Backup switchover in level mode, no CLKOUT, no trickle charger (architecture §4.9). */
+	rv3028: rv3028@52 {
+		compatible = "microcrystal,rv3028";
+		reg = <0x52>;
+		backup-switch-mode = "level";
+		int-gpios = <&gpio3 18 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 28, EMC_32 */
+		status = "okay";
+
+		rv3028_rtc: rtc {
+			compatible = "microcrystal,rv3028-rtc";
+			status = "okay";
+		};
+	};
+
+	/* Port 0 = analog pull-up enables PU_EN0 .. 7, port 1 = DIO_MODE0 .. 7 (architecture §3.2). */
+	pca9555: pca9555@20 {
+		compatible = "nxp,pca9555";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <16>;
+		int-gpios = <&gpio2 16 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;	/* pin 8, B1_00 */
+		status = "okay";
+	};
+};
+
+/*
+ * ESP32-C6 co-processor (Seeed XIAO ESP32C6 running the ESP-Hosted-MCU slave firmware) over 1-bit SDIO on the alternate
+ * uSDHC2 pads: CMD pin 22, CLK pin 23, DATA0 pin 40, 51 kΩ pull-ups on CMD and DATA0 .. DATA3 at the XIAO. The reset
+ * line is one wire from pin 37 to the XIAO's TP8 (EN) pad; Zephyr's transport holds it at logical 1 and pulses it low.
+ * Milestone M6: the four nodes are disabled until the XIAO is wired (a child keeps its own status when its parent is
+ * disabled, so all four carry it). Enabling them also needs the Wi-Fi and network options (teensy41.conf).
+ */
+&usdhc2 {
+	status = "disabled";
+	pinctrl-0 = <&pinmux_usdhc2_coproc>;
+	pinctrl-names = "default";
+	no-1-8-v;
+	bus-width = <1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	esp_hosted_mcu: esp-hosted-mcu@0 {
+		compatible = "espressif,esp-hosted-mcu";
+		reg = <0>;
+		reset-gpios = <&gpio2 19 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;	/* pin 37, B1_03 */
+		status = "disabled";
+
+		esp_hosted_wifi: wifi {
+			compatible = "espressif,esp-hosted-mcu-wifi";
+			status = "disabled";
+		};
+
+		esp_hosted_hci: bt-hci {
+			compatible = "espressif,esp-hosted-mcu-bt-hci";
+			status = "disabled";
+		};
+	};
+};
+
+/*
+ * LPUART1 (pins 24 TX, 25 RX) reaches the co-processor's UART0 (XIAO D7, D6): the C6 console, and the ROM serial
+ * downloader on the board. Nothing in rt_daq drives it yet, so it stays disabled.
+ * LPUART5 (pins 35 TX, 34 RX) is the LIN bus (architecture §4.12); the LIN controller driver is milestone M9.
+ */
+
+/* The Teensy's Ethernet is not used (the PM board has none). */
+&enet {
+	status = "disabled";
+};
+
+&enet_mac {
+	status = "disabled";
+};
+
+&enet_mdio {
+	status = "disabled";
+};
+
+&phy {
+	status = "disabled";
+};
+
+&wdog0 {
+	status = "okay";
+};
+
+&pinctrl {
+	pinmux_adc1: pinmux_adc1 {
+		group0 {
+			pinmux = <&iomuxc_gpio_ad_b1_02_adc1_in7>,
+				 <&iomuxc_gpio_ad_b1_03_adc1_in8>,
+				 <&iomuxc_gpio_ad_b1_10_adc1_in15>,
+				 <&iomuxc_gpio_ad_b1_11_adc1_in0>;
+			bias-disable;
+			drive-strength = "r0-6";
+			slew-rate = "slow";
+			nxp,speed = "100-mhz";
+		};
+	};
+
+	/*
+	 * uSDHC2 on its alternate pads, 1-bit. The pull-ups are the 51 kΩ resistors at the XIAO, so the pads have none; the
+	 * drive is moderate (5 to 20 MHz over short wires).
+	 */
+	pinmux_usdhc2_coproc: pinmux_usdhc2_coproc {
+		group0 {
+			pinmux = <&iomuxc_gpio_ad_b1_09_usdhc2_clk>;
+			bias-disable;
+			drive-strength = "r0-4";
+			input-schmitt-enable;
+			slew-rate = "fast";
+			nxp,speed = "100-mhz";
+		};
+
+		group1 {
+			pinmux = <&iomuxc_gpio_ad_b1_08_usdhc2_cmd>,
+				 <&iomuxc_gpio_ad_b1_04_usdhc2_data0>;
+			bias-disable;
+			drive-strength = "r0-4";
+			input-schmitt-enable;
+			slew-rate = "fast";
+			nxp,speed = "100-mhz";
+		};
+	};
+};

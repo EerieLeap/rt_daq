@@ -54,6 +54,32 @@
             "detail": "Build the Zephyr project using nucleo_h753zi board"
         },
         {
+            "label": "Build Teensy41",
+            "type": "shell",
+            "command": "west build -p auto -b teensy41 ./app",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Build the Zephyr project for the Teensy 4.1 (the PM HW 1.0 bench); flash with west flash (teensy_loader_cli)"
+        },
+        {
+            "label": "Build Teensy41 Renode",
+            "type": "shell",
+            "command": "west build -d build_renode -p auto -b teensy41 -S renode ./app",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Teensy 4.1 build for Renode in build_renode (renode snippet: simulated flash, ADC emulator, CAN loopback)"
+        },
+        {
+            "label": "Run Renode Teensy41",
+            "type": "shell",
+            "command": "renode renode/teensy41.resc --console",
+            "group": "none",
+            "detail": "Run build_renode/zephyr/zephyr.elf on Renode: console on telnet localhost 3456, GDB on port 3333"
+        },
+        {
             "label": "Build ESP32S3",
             "type": "shell",
             "command": "west build -p auto -b esp32s3_devkitc/esp32s3/procpu --sysbuild ./app -- -DOPENOCD=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=/home/ubuntu/zephyr/workspace/project/tools/openocd-esp32/share/openocd/scripts",

@@ -24,6 +24,7 @@ manifest:
           - hal_espressif   # required by the esp32 board
           - hal_st          # required by the stm board
           - hal_stm32       # required by the stm32 board
+          - hal_nxp         # required by the teensy41 / i.MX RT1062 board
           - zcbor           # CBOR light JSON like data format
           - fatfs           # FATFS filesystem
           - littlefs        # littleFS lightweight filesystem

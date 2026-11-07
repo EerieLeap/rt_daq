@@ -61,9 +61,11 @@ Board targets are listed in [boards.md](boards.md). Useful variants:
 | A Kconfig option for one build | append `-- -DCONFIG_EERIE_LEAP_DOMAIN_SENSOR_PROCESSING_STATS=y`; such values stay in the CMake cache until the next `-p always` |
 | The bench build: shell, SMP over the console, stack reports, the `logging` and `sensor` commands | build in its own directory (`-d build_bench`) and append `-- -DEXTRA_CONF_FILE=bench.conf`, which stays in the CMake cache and, under `--sysbuild`, reaches the application image only (see [application.md](application.md#development-aids)) |
 | ESP32 debugging with `west debug` | append `-- -DOPENOCD=<path>/openocd-esp32/bin/openocd -DOPENOCD_DEFAULT_PATH=<path>/openocd-esp32/share/openocd/scripts` (see the ESP32 tasks in `.vscode_example/tasks.json`) |
+| The Teensy 4.1 for Renode | `west build -p auto -b teensy41 -S renode ./app -d build_renode`: the `renode` snippet (`snippets/renode/`) swaps the devices Renode does not model for simulators; its own directory, since the snippet stays in the CMake cache (see [Running in a simulator](#running-in-a-simulator)) |
 
 The VS Code tasks `Build NativeSim`, `Build EL02` (the PM board), `Build EL02 Bench`, `Build STM32H7`,
-`Build H753ZI`, `Build ESP32S3` (the DevKitC), `Check image sizes` and `Build QEMU Cortex A9` wrap these.
+`Build H753ZI`, `Build Teensy41`, `Build Teensy41 Renode`, `Build ESP32S3` (the DevKitC), `Check image sizes`
+and `Build QEMU Cortex A9` wrap these.
 
 The configure step applies the patches from `modules/eerie_leap_rt_core/patches/` and
 `app/patches/` to the Zephyr and HAL checkouts (see [application.md](application.md#patches)).
@@ -138,8 +140,16 @@ in `flash.bin` in the working directory (gitignored), so stored configurations s
 delete the file for a factory-fresh unit. The `Native Sim Debug` launch configuration debugs
 `build/zephyr/zephyr.exe` with gdb.
 
-The Nucleo H753ZI build can run under Renode; `renode/README.md` has the commands and the known
-gaps.
+Two targets run under Renode (`/opt/renode` in the dev container), each with a script in `renode/`:
+the Nucleo H753ZI build, and the Teensy 4.1 build made with the `renode` snippet:
+
+```shell
+west build -p auto -b teensy41 -S renode ./app -d build_renode
+renode renode/teensy41.resc --console        # console: telnet localhost 3456, GDB: port 3333
+```
+
+The task `Run Renode Teensy41` does the second line. [`renode/README.md`](../renode/README.md) has
+what each simulation lacks and how to drive the simulated inputs.
 
 ## Flashing and console
 
@@ -147,6 +157,7 @@ gaps.
 west flash                                   # STM32 boards: STM32CubeProgrammer over SWD
 west flash --esp-device /dev/ttyACM0         # ESP32 boards
 west espressif monitor                       # serial console of an ESP32 board
+west flash                                   # Teensy 4.1: teensy_loader_cli over USB (press the Teensy's button first)
 ```
 
 For an ESP32 sysbuild directory `west flash` writes MCUboot and then the application into `slot0`
@@ -157,6 +168,16 @@ flashed image is swapped back or treated as an update, erase the chip first, as 
 The DevEBox board definition also offers `--runner dfu-util`, `openocd` and `jlink`. The PM
 board's console is its USB serial JTAG port; any serial terminal works, and toggling RTS resets
 the chip.
+
+The Teensy 4.1 is programmed by its own bootloader chip: `west flash` runs `teensy_loader_cli`
+(`sudo apt install teensy-loader-cli` on Ubuntu, or the PJRC build; `--teensy <path>` names another
+binary), or load `build/zephyr/zephyr.hex` with the Teensy Loader application. The runner does not
+wait for the board: press the Teensy's button first, so that it shows up as the HalfKay bootloader
+(`lsusb`: `16c0:0478`), then run `west flash`; otherwise it stops with `Unable to open device`.
+Under WSL the bootloader is a new USB device, so attach the Teensy with
+`usbipd attach --wsl --busid <id> --auto-attach` (in Windows) to have it follow the re-enumeration.
+The console is LPUART6 on pins 0 (RX) and 1 (TX) at 115200 through a 3.3 V UART adapter;
+`-S cdc-acm-console` moves it to the USB port.
 
 ### Moving a unit from simple boot to MCUboot
 
@@ -215,6 +236,10 @@ chip, so back up first and restore afterwards. Updates after that go over the ai
   Debugging works to an extent; breakpoints and stepping are fine, some kernel state is not.
 - **STM32H743:** the `STM32H743 Cortex Debug` launch configuration with an ST-Link on SWD, or
   `west debug`. The `Run DBG Server` task starts `ninja debugserver` for a manual GDB session.
+- **Teensy 4.1:** no debug port on the board. Under Renode the script starts a GDB server on port
+  3333: the `Renode Teensy 4.1 Debug` launch configuration attaches to it (build `build_renode`
+  first and start `Run Renode Teensy41`), or manually
+  `arm-zephyr-eabi-gdb build_renode/zephyr/zephyr.elf -ex 'target remote :3333'`.
 
 ## Tests
 
@@ -278,6 +303,75 @@ few minutes and compare; the format and the counters are described in rt_core's
 from the PM board are only comparable between its debug builds, and its analog inputs need the
 +5 V rail (see [boards.md](boards.md)). native_sim runs in zero simulated time, so durations
 there read 0.
+
+## Profiling memory
+
+Three views, from cheap to detailed: the linker's totals, the static footprint by file, and the
+heaps and stacks of the running firmware.
+
+**Totals.** Every build ends with the memory region table (`FLASH`, `RAM`, and on the Teensy
+`ITCM`, `DTCM`, `OCRAM`). `RAM` is the static image: data, bss, the static thread stacks and the
+kernel heap buffer (`HEAP_MEM_POOL_SIZE`). What the image leaves of `RAM` becomes the libc arena
+(`COMMON_LIBC_MALLOC_ARENA_SIZE=-1`), so a bigger image means a smaller arena, not a link error.
+
+**Static footprint.** `west build -d <build dir> -t ram_report` (or `rom_report`) prints the image
+as a tree by directory, file and symbol and writes `<build dir>/ram.json`; give the existing build
+directory and no source argument (with one, west reconfigures the directory from scratch). On the Teensy 4.1 bench build the tree shows
+what the static RAM is made of: the 128 KiB kernel heap, the `main` and system work queue stacks
+(8 KiB each), the MCUmgr transport buffers (10.5 KiB), littlefs and its file cache (9 KiB), the
+CAN and SD drivers (8 KiB, half of it the MCP2518FD interrupt thread). rt_core itself holds under
+1 KiB of static RAM: its objects live on the heaps. Of the 1.3 MiB of flash, rt_core is 466 KiB,
+Lua 93 KiB, the C++ runtime with libc about 477 KiB, Zephyr 129 KiB and the other modules
+(littlefs, FatFs, the NXP HAL) 55 KiB.
+
+**Runtime.** Build the bench variant (`bench.conf`, see
+[application.md](application.md#development-aids)); it reports every thread's stack peak every 10 s
+through the log and gives the shell commands:
+
+| Command | Shows |
+| --- | --- |
+| `mem heaps` (`APP_MEMORY_SHELL`) | Size, use and peak use of every heap: the kernel heap, the libc arena, the small heaps of Zephyr subsystems. |
+| `kernel heap` | The kernel heap alone (Zephyr's own command). |
+| `kernel thread stacks` | Every thread's stack size and peak use; the thread analyzer prints the same every 10 s with the CPU share. |
+
+Which heap holds what: the kernel heap takes `k_malloc`, the dynamic thread stacks
+(`k_thread_stack_alloc`: rt_core's work queues and service threads) and, on a board without a
+shared multi-heap (the Teensy, and the PM HW 1.0 board unless its PSRAM is fitted), rt_core's PMR
+allocations: configurations, sensors, CAN messages, Lua states. The libc arena takes `malloc` and
+C++ `new`: `std::function`, strings, node containers. Watch the peaks (`max used`) with a real
+configuration loaded and the scenario running (sensors, CAN traffic, logging), not the idle unit.
+
+On the Teensy the shell is on the console UART (pins 0 and 1). Under Renode, with the console on
+the socket of `renode/teensy41.resc`, `scripts/renode_console.py` sends the commands and prints the
+replies, for a headless run too:
+
+```shell
+west build -p auto -b teensy41 -S renode ./app -d build_renode_bench -- -DEXTRA_CONF_FILE=bench.conf
+renode --console -e '$bin_path=@build_renode_bench/zephyr/zephyr.elf' -e 'include @renode/teensy41.resc'   # one terminal
+scripts/renode_console.py --settle 25 "mem heaps" "kernel thread stacks"                                  # another
+```
+
+The same figures come out of GDB on Renode's port 3333 without the shell:
+`p *_system_heap.heap.heap` (the kernel heap), `p *z_malloc_heap.heap` and `p/x z_malloc_heap_end`
+(the libc arena and its end). `bench.conf` sets `STACK_SENTINEL`, which the Teensy's MPU stack
+guard replaces; Kconfig warns about it on that board and the build goes on.
+
+Measured on the Teensy 4.1 under Renode on 2026-11-01, bench build, idle with the default
+configuration (no sensors, no SD card, no display), after 40 s:
+
+| Memory | Size | Used | Peak |
+| --- | --- | --- | --- |
+| Kernel heap | 128 KiB (130760 usable) | 78728 | 78728 |
+| Libc arena | 324040 | 27736 | 27816 |
+| Thread stacks (17 threads) | 76096 configured | | 11108 |
+
+The kernel heap's 78.7 KiB are 47 KiB of dynamic thread stacks (three 8 KiB work queues, five 4 KiB
+threads, the 2 KiB CAN receive thread) plus about 32 KiB of PMR objects and kernel data; that is
+why the Teensy configuration has a 128 KiB heap where `prj.conf` has 64 KiB. The largest stack
+peaks were `main` (2256 of 8192), the configuration work queue (1720 of 8192) and the shell
+(1040 of 4096); the CAN loopback receive thread sits at 404 of its 512 bytes. About 164 KiB of the
+512 KiB were in use in all. The Renode variant lacks the SD, display and CAN drivers, so the real
+board sits a few KiB higher, and a loaded configuration adds its objects to the kernel heap.
 
 ## Updating Zephyr
 

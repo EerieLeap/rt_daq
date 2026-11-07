@@ -1,0 +1,13 @@
+name: renode
+# Runs the application under Renode (renode/<board>.resc). The devices Renode's platform does not model are
+# replaced by Zephyr's simulators: a RAM-backed flash for the configuration store, the ADC emulator, the CAN
+# loopback controller. Only the Teensy 4.1 is covered for now:
+#
+#   west build -p auto -b teensy41 -S renode ./app -d build_renode    (its own directory: the snippet stays in the cache)
+#   renode renode/teensy41.resc --console
+boards:
+  # Keys are the full board target (board/qualifiers).
+  teensy41/mimxrt1062:
+    append:
+      EXTRA_CONF_FILE: teensy41.conf
+      EXTRA_DTC_OVERLAY_FILE: teensy41.overlay

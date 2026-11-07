@@ -1,0 +1,30 @@
+:name: Teensy 4.1
+:description: Runs the Teensy 4.1 build of the application (west build -b teensy41 -S renode ./app) on Renode.
+
+# Override from the command line: renode -e '$bin_path=@/path/to/zephyr.elf' -e 'include @renode/teensy41.resc'
+$name?="Teensy 4.1"
+# A relative @path is looked up in the current directory, then in the project root (the parent of this script).
+path add $ORIGIN/..
+$bin_path?=@build_renode/zephyr/zephyr.elf
+
+# Create the machine and load the platform
+mach create $name
+machine LoadPlatformDescription $ORIGIN/teensy41.repl
+
+# The console, LPUART6 (Teensy pins 0 and 1), on a socket: telnet localhost 3456
+emulation CreateServerSocketTerminal 3456 "console_term" false
+console_term AttachTo sysbus.lpuart6
+# logLevel 0
+
+# GDB: arm-zephyr-eabi-gdb build/zephyr/zephyr.elf -ex 'target remote :3333'
+machine StartGdbServer 3333
+
+# The ROM boots from the IVT in flash; here the core must be pointed at Zephyr's vector table (0x60002000) by hand.
+macro reset
+"""
+    sysbus LoadELF $bin_path
+    sysbus.cpu VectorTableOffset `sysbus GetSymbolAddress "_vector_table"`
+"""
+
+runMacro $reset
+start

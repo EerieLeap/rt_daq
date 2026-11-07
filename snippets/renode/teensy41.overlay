@@ -1,0 +1,214 @@
+/*
+ * Teensy 4.1 under Renode (renode/teensy41.repl), applied after app/boards/teensy41.overlay.
+ *
+ * Renode's i.MX RT platform models the Cortex-M7, the memories, LPUART, GPIO, LPSPI, ADC and TRNG, but not the FlexSPI
+ * NOR flash behind the controller, the uSDHC hosts, LPI2C or FlexCAN, and no model exists for the SPI and I2C devices
+ * of the bench. Those nodes go, and Zephyr's simulators take their place:
+ *   - the littlefs configuration store moves to a simulated flash in RAM that exists only in the Renode machine
+ *     (1 MB at 0x20400000, renode/teensy41.repl), so it costs no real RAM and survives a CPU reset;
+ *   - the eight analog channels come from the ADC emulator (random values, as on native_sim);
+ *   - CAN bus 0 is the loopback controller; there is no bus 1, no SD card, no display.
+ */
+
+/ {
+	aliases {
+		/delete-property/ sdfs0;
+		/delete-property/ can1;
+		/delete-property/ rtc;
+		adc0 = &adc_emul;
+		can0 = &can_loopback0;
+	};
+
+	chosen {
+		/delete-property/ zephyr,sdhc;
+		/delete-property/ zephyr,display;
+	};
+
+	/* RAM of the Renode machine only (renode/teensy41.repl): the simulated flash lives here, not in OCRAM. */
+	renode_flash_ram: memory@20400000 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x20400000 DT_SIZE_M(2)>;
+		zephyr,memory-region = "RENODE_FLASH";
+	};
+
+	sim_flash_controller: sim-flash-controller {
+		compatible = "zephyr,sim-flash";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		erase-value = <0xff>;
+		memory-region = <&renode_flash_ram>;
+
+		sim_flash: flash@0 {
+			compatible = "soc-nv-flash";
+			erase-block-size = <4096>;
+			write-block-size = <4>;
+			reg = <0x00000000 DT_SIZE_M(2)>;
+
+			partitions {
+				compatible = "fixed-partitions";
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				intfs0_partition: partition@0 {
+					label = "intfs0_storage";
+					reg = <0x00000000 DT_SIZE_M(1)>;
+				};
+
+				sdhc_partition: partition@100000 {
+					label = "sdhc_storage";
+					reg = <0x00100000 DT_SIZE_M(1)>;
+				};
+			};
+		};
+	};
+
+	/* FatFS of the bench conf needs a volume: a flash disk, declared and not mounted (no sdfs0, no zephyr,sdhc). */
+	sdhc_disk: storage_disk {
+		compatible = "zephyr,flash-disk";
+		partition = <&sdhc_partition>;
+		disk-name = "SD";
+		cache-size = <4096>;
+	};
+
+	can_loopback0: can_loopback0 {
+		compatible = "zephyr,can-loopback";
+		status = "okay";
+	};
+
+	adc_emul: adc {
+		compatible = "zephyr,adc-emul";
+		nchannels = <8>;
+		ref-internal-mv = <3300>;
+		ref-external1-mv = <5000>;
+		#io-channel-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		channel@0 {
+			reg = <0>;
+			zephyr,gain = "ADC_GAIN_1";
+			zephyr,reference = "ADC_REF_INTERNAL";
+			zephyr,vref-mv = <3300>;
+			zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+			zephyr,resolution = <12>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			zephyr,gain = "ADC_GAIN_1";
+			zephyr,reference = "ADC_REF_INTERNAL";
+			zephyr,vref-mv = <3300>;
+			zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+			zephyr,resolution = <12>;
+		};
+
+		channel@2 {
+			reg = <2>;
+			zephyr,gain = "ADC_GAIN_1";
+			zephyr,reference = "ADC_REF_INTERNAL";
+			zephyr,vref-mv = <3300>;
+			zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+			zephyr,resolution = <12>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			zephyr,gain = "ADC_GAIN_1";
+			zephyr,reference = "ADC_REF_INTERNAL";
+			zephyr,vref-mv = <3300>;
+			zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+			zephyr,resolution = <12>;
+		};
+
+		channel@4 {
+			reg = <4>;
+			zephyr,gain = "ADC_GAIN_1";
+			zephyr,reference = "ADC_REF_INTERNAL";
+			zephyr,vref-mv = <3300>;
+			zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+			zephyr,resolution = <12>;
+		};
+
+		channel@5 {
+			reg = <5>;
+			zephyr,gain = "ADC_GAIN_1";
+			zephyr,reference = "ADC_REF_INTERNAL";
+			zephyr,vref-mv = <3300>;
+			zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+			zephyr,resolution = <12>;
+		};
+
+		channel@6 {
+			reg = <6>;
+			zephyr,gain = "ADC_GAIN_1";
+			zephyr,reference = "ADC_REF_INTERNAL";
+			zephyr,vref-mv = <3300>;
+			zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+			zephyr,resolution = <12>;
+		};
+
+		channel@7 {
+			reg = <7>;
+			zephyr,gain = "ADC_GAIN_1";
+			zephyr,reference = "ADC_REF_INTERNAL";
+			zephyr,vref-mv = <3300>;
+			zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+			zephyr,resolution = <12>;
+		};
+	};
+};
+
+/* The littlefs partition of the bench overlay sits in the NOR flash; the one above replaces it. */
+/delete-node/ &intfs0_partition;
+
+/* No flash model behind the FlexSPI controller in Renode: the NOR driver goes, the code still runs from 0x60000000. */
+&ext_flash_ctrl {
+	status = "disabled";
+};
+
+/* Not modelled by Renode. A child keeps its own status when the parent is disabled, so the disk node goes too. */
+&usdhc1 {
+	status = "disabled";
+};
+
+&{/soc/usdhc@402c0000/mmc} {
+	status = "disabled";
+};
+
+&flexcan3 {
+	status = "disabled";
+};
+
+&lpspi4 {
+	status = "disabled";
+};
+
+&can1_mcp2518fd {
+	status = "disabled";
+};
+
+&lpi2c1 {
+	status = "disabled";
+};
+
+&ssd1306 {
+	status = "disabled";
+};
+
+&rv3028 {
+	status = "disabled";
+};
+
+&rv3028_rtc {
+	status = "disabled";
+};
+
+&pca9555 {
+	status = "disabled";
+};
+
+/* The internal ADC is modelled, but the emulator gives the eight channels of the board deterministically. */
+&adc1 {
+	status = "disabled";
+};
