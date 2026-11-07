@@ -14,6 +14,7 @@
 
     #include "domain/logging_domain/control/i_logging_control.h"
     #include "domain/logging_domain/models/logging_configuration.h"
+    #include "domain/logging_domain/models/logging_start_cause.h"
     #include "subsys/device_tree/dt_fs.h"
     #include "utilities/memory/memory_resource_manager.h"
 
@@ -25,6 +26,7 @@ namespace eerie_leap::shell {
 using eerie_leap::controllers::LoggingController;
 using eerie_leap::domain::logging_domain::control::ILoggingControl;
 using eerie_leap::domain::logging_domain::models::LoggingConfiguration;
+using eerie_leap::domain::logging_domain::models::LoggingStartCause;
 using eerie_leap::domain::sensor_domain::configuration::SensorsConfigurationManager;
 using eerie_leap::subsys::threading::WorkQueueThread;
 using eerie_leap::utilities::memory::Mrm;
@@ -93,7 +95,7 @@ extern "C" int app_logging_shell_start(const struct shell* sh, size_t argc, char
         return -EINVAL;
     }
 
-    control->RequestStart(target_uid);
+    control->RequestStart(target_uid, LoggingStartCause::Shell);
     shell_print(sh, "Logging start requested; 'logging status' shows the outcome.");
 
     return 0;

@@ -43,6 +43,7 @@
 #include "controllers/logging_controller.h"
 #include "controllers/sensors_controller.h"
 #include "controllers/system_controller.h"
+#include "domain/logging_domain/models/logging_start_cause.h"
 #ifdef CONFIG_APP_LOGGING_SHELL
     #include "shell/logging_shell_bridge.h"
 #endif
@@ -397,7 +398,9 @@ static int Run() {
     if(logging_controller != nullptr) {
         k_msleep(CONFIG_APP_LOGGING_AUTOSTART_DELAY_MS);
         // This unit only: the bench aid stands in for a local trigger.
-        logging_controller->GetControl()->RequestStart(logging_controller->GetUnitUid());
+        logging_controller->GetControl()->RequestStart(
+            logging_controller->GetUnitUid(), eerie_leap::domain::logging_domain::models::LoggingStartCause::Autostart
+        );
         LOG_INF("Logging start requested automatically.");
     }
 #endif
